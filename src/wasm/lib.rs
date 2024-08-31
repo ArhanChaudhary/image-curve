@@ -23,25 +23,23 @@ pub fn handle_message(message: JsValue) {
 #[serde(tag = "action", content = "payload")]
 enum ReceivedWorkerMessage {
     #[serde(rename = "canvasInit")]
-    CanvasInit {
-        width: usize,
-        height: usize,
-        #[serde(rename = "pixelData")]
-        pixel_data: Vec<u8>,
-    },
+    CanvasInit(CanvasInitMessage),
     #[serde(rename = "step")]
     Step,
+}
+#[derive(Deserialize)]
+struct CanvasInitMessage {
+    #[serde(rename = "pixelData")]
+    pixel_data: Vec<u8>,
+    width: usize,
+    height: usize,
 }
 
 impl ReceivedWorkerMessage {
     pub fn process(self) {
         match self {
-            Self::CanvasInit {
-                width,
-                height,
-                pixel_data,
-            } => {
-                renderer::canvas_init(width, height, pixel_data);
+            Self::CanvasInit(canvas_init_message) => {
+                renderer::canvas_init(canvas_init_message);
             }
             Self::Step => {
                 renderer::step();

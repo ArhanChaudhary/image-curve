@@ -1,6 +1,6 @@
 // use std::sync::OnceLock;
 
-use crate::gilbert::gilbert_d2xy;
+use crate::{gilbert::gilbert_d2xy, CanvasInitMessage};
 use js_sys::{Uint8ClampedArray, WebAssembly};
 use serde::Serialize;
 // use serde::{Deserialize, Serialize};
@@ -75,17 +75,17 @@ unsafe impl Send for OffscreenCanvasRenderingContext2d {}
 //     });
 // }
 
-pub fn canvas_init(width: usize, height: usize, pixel_data: Vec<u8>) {
+pub fn canvas_init(canvas_init_message: CanvasInitMessage) {
     unsafe {
-        CURVE = (0..(width * height))
+        CURVE = (0..(canvas_init_message.width * canvas_init_message.height))
             .map(|idx| {
-                let p = gilbert_d2xy(idx as i32, width as i32, height as i32);
-                ((p.y as usize) * width + (p.x as usize)) * 4
+                let p = gilbert_d2xy(idx as i32, canvas_init_message.width as i32, canvas_init_message.height as i32);
+                ((p.y as usize) * canvas_init_message.width + (p.x as usize)) * 4
             })
             .collect();
-        PIXEL_DATA = pixel_data;
-        WIDTH = width;
-        HEIGHT = height;
+        PIXEL_DATA = canvas_init_message.pixel_data;
+        WIDTH = canvas_init_message.width;
+        HEIGHT = canvas_init_message.height;
     }
     render_pixel_data();
 }
