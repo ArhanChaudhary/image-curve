@@ -55,9 +55,11 @@ async function reset() {
     let pixelData = ctx.getImageData(0, 0, 512, 512).data;
     renderer.postMessage({
       action: "canvasInit",
-      pixelData,
-      width: 512,
-      height: 512,
+      payload: {
+        pixelData,
+        width: 512,
+        height: 512,
+      },
     });
   };
   img.src = src;
