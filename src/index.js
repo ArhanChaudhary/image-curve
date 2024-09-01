@@ -11,45 +11,17 @@ let stepInput = document.getElementById("step");
 let stopInput = document.getElementById("stop");
 
 let worker = new Worker("worker.js", { type: "module" });
-let loadWorker = new Promise((resolve) => {
-  worker.addEventListener(
-    "message",
-    (e) => {
-      if (e.data === "loaded") {
-        resolve();
-      }
-    },
-    { once: true }
-  );
-});
 
-let wasmMemory;
-let loadWasmMemory = wasmInit().then(({ memory }) => {
-  wasmMemory = memory;
-  handleMessage({
-    action: "canvasInit",
-    payload: {
-      canvas,
-    },
-  });
+let { memory: wasmMemory } = await wasmInit();
+handleMessage({
+  action: "canvasInit",
+  payload: {
+    canvas,
+  },
 });
-
-await Promise.all([loadWorker, loadWasmMemory]);
 worker.postMessage({
   wasmModule: wasmInit.__wbindgen_wasm_module,
   wasmMemory,
-});
-
-await new Promise((resolve) => {
-  worker.addEventListener(
-    "message",
-    (e) => {
-      if (e.data === "ready") {
-        resolve();
-      }
-    },
-    { once: true }
-  );
 });
 
 async function toBase64(file) {
