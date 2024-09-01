@@ -1,9 +1,10 @@
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
-use web_sys::console;
+use web_sys::{console, HtmlCanvasElement};
 
 mod gilbert;
 mod renderer;
+mod worker;
 
 #[wasm_bindgen(start)]
 pub fn start() {
@@ -22,27 +23,33 @@ pub fn handle_message(message: JsValue) {
 #[derive(Deserialize)]
 #[serde(tag = "action", content = "payload")]
 enum ReceivedWorkerMessage {
+    #[serde(rename = "loadImage")]
+    LoadImage,
     #[serde(rename = "canvasInit")]
     CanvasInit(CanvasInitMessage),
     #[serde(rename = "step")]
     Step,
 }
+
 #[derive(Deserialize)]
 struct CanvasInitMessage {
-    #[serde(rename = "pixelData")]
-    pixel_data: Vec<u8>,
-    width: usize,
-    height: usize,
+    // #[serde(rename = "pixelData")]
+    // image_buffer: Vec<u8>,
+    #[serde(with = "serde_wasm_bindgen::preserve")]
+    canvas: HtmlCanvasElement,
 }
 
 impl ReceivedWorkerMessage {
     pub fn process(self) {
         match self {
+            Self::LoadImage => {
+                renderer::load_image();
+            }
             Self::CanvasInit(canvas_init_message) => {
                 renderer::canvas_init(canvas_init_message);
             }
             Self::Step => {
-                renderer::step();
+                worker::step();
             }
         }
     }
