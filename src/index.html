@@ -1,3 +1,21 @@
-<script type="module" src="./index.js"></script>
-<input type="file">
-<canvas height="512" width="512" style="image-rendering: pixelated;"></canvas>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Gilbert</title>
+    <style>
+      canvas {
+        image-rendering: pixelated;
+      }
+    </style>
+    <script type="module" src="./index.js"></script>
+  </head>
+  <body>
+    <canvas height="512" width="512"></canvas>
+    <input type="file" value="Upload image" id="upload" />
+    <input type="button" value="Start" id="start" />
+    <input type="button" value="Step" id="step" />
+    <input type="button" value="Stop" id="stop" />
+  </body>
+</html>

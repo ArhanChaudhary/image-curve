@@ -1,7 +1,7 @@
-use crate::{gilbert::gilbert_d2xy, CanvasInitMessage};
+use crate::{gilbert, worker, CanvasInitMessage};
 use js_sys::{Uint8ClampedArray, WebAssembly};
 use serde::Serialize;
-use std::{cell::OnceCell, rc::Rc};
+use std::{cell::OnceCell, ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
@@ -30,7 +30,7 @@ pub fn load_image() {
     unsafe {
         CURVE = (0..(width * height))
             .map(|idx| {
-                let p = gilbert_d2xy(idx as i32, width as i32, height as i32);
+                let p = gilbert::gilbert_d2xy(idx as i32, width as i32, height as i32);
                 ((p.y as usize) * width + (p.x as usize)) * 4
             })
             .collect();
@@ -68,8 +68,7 @@ extern "C" {
     type ImageData;
 
     #[wasm_bindgen(constructor, catch)]
-    fn new(data: &Uint8ClampedArray, width: u32, height: u32)
-        -> Result<ImageData, JsValue>;
+    fn new(data: &Uint8ClampedArray, width: u32, height: u32) -> Result<ImageData, JsValue>;
 }
 
 #[wasm_bindgen(js_name = renderPixelData)]
@@ -83,15 +82,14 @@ pub fn render_pixel_data() {
     )
     .slice(base, base + len);
 
-    let image_data =
-        &ImageData::new(
-            &sliced_pixel_data,
-            unsafe { WIDTH } as u32,
-            unsafe { HEIGHT } as u32,
-        )
-        .unwrap()
-        .dyn_into::<web_sys::ImageData>()
-        .unwrap();
+    let image_data = &ImageData::new(
+        &sliced_pixel_data,
+        unsafe { WIDTH } as u32,
+        unsafe { HEIGHT } as u32,
+    )
+    .unwrap()
+    .dyn_into::<web_sys::ImageData>()
+    .unwrap();
 
     CTX.with(|ctx| {
         ctx.get()
@@ -99,4 +97,12 @@ pub fn render_pixel_data() {
             .put_image_data(image_data, 0.0, 0.0)
             .unwrap();
     });
+}
+
+pub fn stop() {
+    unsafe {
+        worker::STOP_WORKER_LOOP = true;
+        while ptr::read_volatile(ptr::addr_of!(worker::STOP_WORKER_LOOP)) {}
+    }
+    render_pixel_data();
 }

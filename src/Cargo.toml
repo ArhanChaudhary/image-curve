@@ -27,5 +27,26 @@ features = [
     "CanvasRenderingContext2d",
 ]
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = [
+    "--generate-global-effects",
+    "--type-ssa",
+    "-O4",
+    "--enable-bulk-memory",
+    "--enable-threads",
+    "-tnh",
+    "--closed-world",
+    "--low-memory-unused",
+    "--flatten",
+    "--rereloop",
+    "-O4",
+    "--gufa",
+    "-O4",
+    "--type-merging",
+    "-O4",
+]
+
 [profile.release]
-opt-level = "s"
+panic = "abort"
+codegen-units = 1
+lto = "fat"

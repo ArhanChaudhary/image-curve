@@ -1,13 +1,8 @@
-// use serde::Serialize;
-// use wasm_bindgen::prelude::*;
-
-// #[derive(Serialize)]
 pub struct Point {
     pub x: i32,
     pub y: i32,
 }
 
-// #[wasm_bindgen]
 pub fn gilbert_d2xy(idx: i32, w: i32, h: i32) -> Point {
     let mut _p = Point { x: 0, y: 0 };
     let mut _a = Point { x: 0, y: h };
@@ -19,7 +14,6 @@ pub fn gilbert_d2xy(idx: i32, w: i32, h: i32) -> Point {
         _b.x = 0;
         _b.y = h;
     }
-    // serde_wasm_bindgen::to_value(&gilbert_d2xy_r(idx, 0, _p, _a, _b)).unwrap()
     gilbert_d2xy_r(idx, 0, _p, _a, _b)
 }
 

@@ -1,20 +1,19 @@
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
-use web_sys::{console, HtmlCanvasElement};
+use web_sys::HtmlCanvasElement;
 
 mod gilbert;
 mod renderer;
 mod worker;
 
 #[wasm_bindgen(start)]
-pub fn start() {
+fn set_panic_hook() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 }
 
 #[wasm_bindgen(js_name = handleMessage)]
 pub fn handle_message(message: JsValue) {
-    console::log_1(&"entry".into());
     let received_worker_message: ReceivedWorkerMessage =
         serde_wasm_bindgen::from_value(message).unwrap();
     received_worker_message.process();
@@ -29,12 +28,14 @@ enum ReceivedWorkerMessage {
     CanvasInit(CanvasInitMessage),
     #[serde(rename = "step")]
     Step,
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "stop")]
+    Stop,
 }
 
 #[derive(Deserialize)]
 struct CanvasInitMessage {
-    // #[serde(rename = "pixelData")]
-    // image_buffer: Vec<u8>,
     #[serde(with = "serde_wasm_bindgen::preserve")]
     canvas: HtmlCanvasElement,
 }
@@ -48,8 +49,15 @@ impl ReceivedWorkerMessage {
             Self::CanvasInit(canvas_init_message) => {
                 renderer::canvas_init(canvas_init_message);
             }
+            Self::Stop => {
+                renderer::stop();
+            }
+
             Self::Step => {
                 worker::step();
+            }
+            Self::Start => {
+                worker::start();
             }
         }
     }

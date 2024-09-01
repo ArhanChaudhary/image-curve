@@ -1,7 +1,14 @@
-import wasmInit, { handleMessage, renderPixelData } from "./pkg/image_gilbert.js";
+import wasmInit, {
+  handleMessage,
+  renderPixelData,
+} from "./pkg/image_gilbert.js";
 
 let canvas = document.querySelector("canvas");
 let ctx = canvas.getContext("2d");
+let uploadInput = document.getElementById("upload");
+let startInput = document.getElementById("start");
+let stepInput = document.getElementById("step");
+let stopInput = document.getElementById("stop");
 
 let worker = new Worker("worker.js", { type: "module" });
 let loadWorker = new Promise((resolve) => {
@@ -45,8 +52,6 @@ await new Promise((resolve) => {
   );
 });
 
-let input = document.querySelector("input");
-
 async function toBase64(file) {
   return new Promise((resolve) => {
     let reader = new FileReader();
@@ -55,8 +60,8 @@ async function toBase64(file) {
   });
 }
 
-async function reset() {
-  let src = await toBase64(input.files[0]);
+async function uploadedImage() {
+  let src = await toBase64(uploadInput.files[0]);
   let img = new Image();
   img.onload = function () {
     // canvas.width = 512;
@@ -69,11 +74,35 @@ async function reset() {
   img.src = src;
 }
 
-input.addEventListener("change", reset);
+let rafId;
 
-function step() {
-  handleMessage({ action: "step" });
+function start() {
+  worker.postMessage({
+    action: "start",
+  });
+  rafId = requestAnimationFrame(renderPixelDataLoop);
 }
 
-window.step = step;
-window.renderPixelData = renderPixelData;
+function renderPixelDataLoop() {
+  renderPixelData();
+  rafId = requestAnimationFrame(renderPixelDataLoop);
+}
+
+function step() {
+  handleMessage({
+    action: "step",
+  });
+  renderPixelData();
+}
+
+function stop() {
+  handleMessage({
+    action: "stop",
+  });
+  cancelAnimationFrame(rafId);
+}
+
+uploadInput.addEventListener("change", uploadedImage);
+startInput.addEventListener("click", start);
+stepInput.addEventListener("click", step);
+stopInput.addEventListener("click", stop);
