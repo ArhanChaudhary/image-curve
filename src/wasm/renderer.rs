@@ -19,26 +19,25 @@ pub struct CanvasContextOptions {
 }
 
 pub fn load_image() {
-    let width = 512;
-    let height = 512;
     let ctx = CTX.with(|ctx| ctx.get().unwrap().clone());
+    let width = ctx.canvas().unwrap().width() as usize;
+    let height = ctx.canvas().unwrap().height() as usize;
     let pixel_data = ctx
         .get_image_data(0.0, 0.0, width as f64, height as f64)
         .unwrap()
         .data()
         .0;
+    let curve = (0..(width * height))
+        .map(|idx| {
+            let p = gilbert::gilbert_d2xy(idx as i32, width as i32, height as i32);
+            ((p.y as usize) * width + (p.x as usize)) * 4
+        })
+        .collect();
     unsafe {
-        CURVE = Some(
-            (0..(width * height))
-                .map(|idx| {
-                    let p = gilbert::gilbert_d2xy(idx as i32, width as i32, height as i32);
-                    ((p.y as usize) * width + (p.x as usize)) * 4
-                })
-                .collect(),
-        );
-        PIXEL_DATA = Some(pixel_data);
         WIDTH = Some(width);
         HEIGHT = Some(height);
+        CURVE = Some(curve);
+        PIXEL_DATA = Some(pixel_data);
     }
 }
 

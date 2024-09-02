@@ -38,12 +38,14 @@ async function uploadedImage() {
   let src = await toBase64(uploadInput.files[0]);
   let img = new Image();
   img.onload = function () {
-    // canvas.width = 512;
-    // canvas.height = 512;
-    ctx.drawImage(img, 0, 0, 512, 512);
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0, img.width, img.height);
     handleMessage({
       action: "loadImage",
     });
+    changeSpeed();
+    changeStep();
   };
   img.src = src;
 }
@@ -94,8 +96,6 @@ function changeStep() {
   });
 }
 
-changeSpeed();
-changeStep();
 uploadInput.addEventListener("change", uploadedImage);
 startInput.addEventListener("click", start);
 stepInput.addEventListener("click", step);
