@@ -1,16 +1,16 @@
 use crate::{gilbert, worker, CanvasInitMessage, ChangeSpeedMessage, ChangeStepMessage};
 use js_sys::{Uint8ClampedArray, WebAssembly};
 use serde::Serialize;
-use std::{cell::OnceCell, ptr, rc::Rc, num::NonZero};
+use std::{cell::OnceCell, ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
 thread_local! {
     static CTX: OnceCell<Rc<CanvasRenderingContext2d>> = const { OnceCell::new() };
 }
-pub static mut WIDTH: usize = 0;
-pub static mut CURVE: Vec<usize> = Vec::new();
-pub static mut HEIGHT: usize = 0;
+pub static mut WIDTH: Option<usize> = None;
+pub static mut HEIGHT: Option<usize> = None;
+pub static mut CURVE: Option<Vec<usize>> = None;
 pub static mut PIXEL_DATA: Option<Vec<u8>> = None;
 
 #[derive(Serialize)]
@@ -28,15 +28,17 @@ pub fn load_image() {
         .data()
         .0;
     unsafe {
-        CURVE = (0..(width * height))
-            .map(|idx| {
-                let p = gilbert::gilbert_d2xy(idx as i32, width as i32, height as i32);
-                ((p.y as usize) * width + (p.x as usize)) * 4
-            })
-            .collect();
+        CURVE = Some(
+            (0..(width * height))
+                .map(|idx| {
+                    let p = gilbert::gilbert_d2xy(idx as i32, width as i32, height as i32);
+                    ((p.y as usize) * width + (p.x as usize)) * 4
+                })
+                .collect(),
+        );
         PIXEL_DATA = Some(pixel_data);
-        WIDTH = width;
-        HEIGHT = height;
+        WIDTH = Some(width);
+        HEIGHT = Some(height);
     }
 }
 
@@ -84,8 +86,8 @@ pub fn render_pixel_data() {
 
     let image_data = &ImageData::new(
         &sliced_pixel_data,
-        unsafe { WIDTH } as u32,
-        unsafe { HEIGHT } as u32,
+        unsafe { WIDTH.unwrap() } as u32,
+        unsafe { HEIGHT.unwrap() } as u32,
     )
     .unwrap()
     .dyn_into::<web_sys::ImageData>()
@@ -120,13 +122,21 @@ pub fn change_speed(change_speed_message: ChangeSpeedMessage) {
     }
 }
 
-const ALL_STEPS_PER_LOOP: [isize; 13] = [
-    -1000, -700, -300, -100, -50, -5, 0, 5, 50, 100, 300, 700, 1000,
-];
 pub fn change_step(change_step_message: ChangeStepMessage) {
-    let lerped: isize =
-        crate::utils::lerp(ALL_STEPS_PER_LOOP, change_step_message.new_step_percentage);
     unsafe {
-        worker::STEPS_PER_LOOP = NonZero::new(lerped).unwrap_or(NonZero::new(1).unwrap());
+        if WIDTH.is_none() || HEIGHT.is_none() {
+            return;
+        }
+    }
+    let mut scaled_step_percentage = (change_step_message.new_step_percentage as isize - 50) * 2;
+    if scaled_step_percentage == 0 {
+        scaled_step_percentage = 1;
+    }
+    let n = unsafe { WIDTH.unwrap() * HEIGHT.unwrap() };
+    let n_proportion = 2_usize
+        .pow(n.ilog2() - scaled_step_percentage.unsigned_abs() as u32 * (n.ilog2() - 1) / 100);
+    let steps_per_loop = (n / n_proportion) as isize * scaled_step_percentage.signum();
+    unsafe {
+        worker::STEPS_PER_LOOP = steps_per_loop;
     }
 }

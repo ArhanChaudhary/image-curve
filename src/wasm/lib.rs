@@ -1,6 +1,3 @@
-#![feature(const_option)]
-#![feature(generic_nonzero)]
-
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
