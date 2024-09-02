@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2024 abetusk
+
 pub struct Point {
     pub x: i32,
     pub y: i32,

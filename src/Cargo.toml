@@ -17,6 +17,7 @@ wasm-bindgen = "0.2.93"
 serde = { version = "1.0", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"
 console_error_panic_hook = { version = "0.1.7", optional = true }
+num = "0.4.3"
 
 [dependencies.web-sys]
 version = "0.3.70"
@@ -29,19 +30,19 @@ features = [
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = [
-    "--generate-global-effects",
-    "--type-ssa",
-    "-O4",
     "--enable-bulk-memory",
     "--enable-threads",
+    "--generate-global-effects",
+    "--type-ssa",
     "-tnh",
+    "-O4",
     "--closed-world",
     "--low-memory-unused",
+    "-O4",
     "--flatten",
     "--rereloop",
     "-O4",
     "--gufa",
-    "-O4",
     "--type-merging",
     "-O4",
 ]

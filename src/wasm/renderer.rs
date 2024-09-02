@@ -1,7 +1,7 @@
-use crate::{gilbert, worker, CanvasInitMessage};
+use crate::{gilbert, worker, CanvasInitMessage, ChangeSpeedMessage, ChangeStepMessage};
 use js_sys::{Uint8ClampedArray, WebAssembly};
 use serde::Serialize;
-use std::{cell::OnceCell, ptr, rc::Rc};
+use std::{cell::OnceCell, ptr, rc::Rc, num::NonZero};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
@@ -73,8 +73,8 @@ extern "C" {
 
 #[wasm_bindgen(js_name = renderPixelData)]
 pub fn render_pixel_data() {
-    let base = unsafe { PIXEL_DATA.as_ref().unwrap().as_ptr() as u32 };
-    let len = unsafe { PIXEL_DATA.as_ref().unwrap().len() as u32 };
+    let base = unsafe { PIXEL_DATA.as_ref().unwrap().as_ptr() } as u32;
+    let len = unsafe { PIXEL_DATA.as_ref().unwrap().len() } as u32;
     let sliced_pixel_data = Uint8ClampedArray::new(
         &wasm_bindgen::memory()
             .unchecked_into::<WebAssembly::Memory>()
@@ -105,4 +105,28 @@ pub fn stop() {
         while ptr::read_volatile(ptr::addr_of!(worker::STOP_WORKER_LOOP)) {}
     }
     render_pixel_data();
+}
+
+const ALL_SLEEPS_PER_LOOP: [usize; 10] =
+    [200_000, 175_000, 50_000, 10_000, 2500, 500, 40, 20, 10, 0];
+
+pub fn change_speed(change_speed_message: ChangeSpeedMessage) {
+    let lerped: u64 = crate::utils::lerp(
+        ALL_SLEEPS_PER_LOOP,
+        change_speed_message.new_speed_percentage,
+    );
+    unsafe {
+        worker::SLEEP_PER_LOOP = lerped;
+    }
+}
+
+const ALL_STEPS_PER_LOOP: [isize; 13] = [
+    -1000, -700, -300, -100, -50, -5, 0, 5, 50, 100, 300, 700, 1000,
+];
+pub fn change_step(change_step_message: ChangeStepMessage) {
+    let lerped: isize =
+        crate::utils::lerp(ALL_STEPS_PER_LOOP, change_step_message.new_step_percentage);
+    unsafe {
+        worker::STEPS_PER_LOOP = NonZero::new(lerped).unwrap_or(NonZero::new(1).unwrap());
+    }
 }

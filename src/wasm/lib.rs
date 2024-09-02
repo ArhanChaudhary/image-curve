@@ -1,3 +1,6 @@
+#![feature(const_option)]
+#![feature(generic_nonzero)]
+
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
@@ -5,6 +8,7 @@ use web_sys::HtmlCanvasElement;
 mod gilbert;
 mod renderer;
 mod worker;
+mod utils;
 
 #[wasm_bindgen(start)]
 fn set_panic_hook() {
@@ -32,12 +36,26 @@ enum ReceivedWorkerMessage {
     Start,
     #[serde(rename = "stop")]
     Stop,
+    #[serde(rename = "changeSpeed")]
+    ChangeSpeed(ChangeSpeedMessage),
+    #[serde(rename = "changeStep")]
+    ChangeStep(ChangeStepMessage),
 }
 
 #[derive(Deserialize)]
 struct CanvasInitMessage {
     #[serde(with = "serde_wasm_bindgen::preserve")]
     canvas: HtmlCanvasElement,
+}
+
+#[derive(Deserialize)]
+struct ChangeSpeedMessage {
+    new_speed_percentage: usize,
+}
+
+#[derive(Deserialize)]
+struct ChangeStepMessage {
+    new_step_percentage: usize,
 }
 
 impl ReceivedWorkerMessage {
@@ -51,6 +69,12 @@ impl ReceivedWorkerMessage {
             }
             Self::Stop => {
                 renderer::stop();
+            }
+            Self::ChangeSpeed(change_speed_message) => {
+                renderer::change_speed(change_speed_message);
+            }
+            Self::ChangeStep(change_step_message) => {
+                renderer::change_step(change_step_message);
             }
 
             Self::Step => {

@@ -9,6 +9,8 @@ let uploadInput = document.getElementById("upload");
 let startInput = document.getElementById("start");
 let stepInput = document.getElementById("step");
 let stopInput = document.getElementById("stop");
+let changeSpeedInput = document.getElementById("change-speed");
+let changeStepInput = document.getElementById("change-step");
 
 let worker = new Worker("worker.js", { type: "module" });
 
@@ -74,7 +76,29 @@ function stop() {
   cancelAnimationFrame(rafId);
 }
 
+function changeSpeed() {
+  handleMessage({
+    action: "changeSpeed",
+    payload: {
+      new_speed_percentage: changeSpeedInput.valueAsNumber,
+    },
+  });
+}
+
+function changeStep() {
+  handleMessage({
+    action: "changeStep",
+    payload: {
+      new_step_percentage: changeStepInput.valueAsNumber,
+    },
+  });
+}
+
+changeSpeed();
+changeStep();
 uploadInput.addEventListener("change", uploadedImage);
 startInput.addEventListener("click", start);
 stepInput.addEventListener("click", step);
 stopInput.addEventListener("click", stop);
+changeSpeedInput.addEventListener("input", changeSpeed);
+changeStepInput.addEventListener("input", changeStep);
