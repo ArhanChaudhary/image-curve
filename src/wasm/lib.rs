@@ -1,6 +1,10 @@
+use handlers::RequestAnimationFrameHandle;
 use js_sys::Array;
 use serde::Serialize;
-use std::{cell::{Cell, RefCell}, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 use wasm_bindgen::prelude::*;
 use web_sys::{
     console, CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, Worker, WorkerOptions,
@@ -14,19 +18,19 @@ mod renderer;
 mod utils;
 mod worker;
 
-#[wasm_bindgen]
-pub fn run() {
+#[wasm_bindgen(start)]
+fn start() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
+}
 
+#[wasm_bindgen]
+pub fn run() {
     let document = web_sys::window().unwrap().document().unwrap();
     let canvas = Rc::new(utils::get_element_by_id::<HtmlCanvasElement>(
         &document, "canvas",
     ));
-    #[derive(Serialize)]
-    struct CanvasContextOptions {
-        desynchronized: bool,
-    }
+
     let ctx = Rc::new(
         canvas
             .get_context_with_context_options(
@@ -79,24 +83,20 @@ pub fn run() {
     }
 
     {
-        let raf_id = Rc::new(Cell::new(0));
+        let raf_handle = Rc::new(RequestAnimationFrameHandle {
+            id: Cell::new(0),
+            handle: RefCell::new(None),
+        });
+    
         {
-            let render_pixel_data_loop = Rc::new(RefCell::new(None));
-            let render_pixel_data_loop_clone = render_pixel_data_loop.clone();
-            let ctx_clone = ctx.clone();
-            let raf_id_clone = raf_id.clone();
-            let raf_id_clone_2 = raf_id.clone();
-            *render_pixel_data_loop.borrow_mut() = Some(Closure::<dyn FnMut()>::new(move || {
-                renderer::render_pixel_data(ctx_clone.clone());
-                raf_id_clone.set(utils::request_animation_frame(
-                    render_pixel_data_loop_clone.borrow().as_ref().unwrap(),
-                ));
-            }));
             let worker_clone = worker.clone();
+            let ctx_clone = ctx.clone();
+            let raf_handle_clone = raf_handle.clone();
             let onclick_closure = Closure::<dyn FnMut()>::new(move || {
-                handlers::clicked_start(worker_clone.clone());
-                raf_id_clone_2.set(utils::request_animation_frame(
-                    render_pixel_data_loop.borrow().as_ref().unwrap(),
+                *raf_handle_clone.handle.borrow_mut() = Some(handlers::clicked_start(
+                    ctx_clone.clone(),
+                    worker_clone.clone(),
+                    raf_handle_clone.clone(),
                 ));
             });
             start_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
@@ -106,10 +106,15 @@ pub fn run() {
         {
             let ctx_clone = ctx.clone();
             let onclick_closure = Closure::<dyn FnMut()>::new(move || {
-                handlers::clicked_stop(ctx_clone.clone(), raf_id.get());
+                handlers::clicked_stop(ctx_clone.clone(), raf_handle.clone());
             });
             stop_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
             onclick_closure.forget();
         }
     }
+}
+
+#[derive(Serialize)]
+struct CanvasContextOptions {
+    desynchronized: bool,
 }

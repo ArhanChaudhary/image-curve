@@ -5,9 +5,6 @@ use std::{ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
-// thread_local! {
-//     static CTX: OnceCell<Rc<CanvasRenderingContext2d>> = const { OnceCell::new() };
-// }
 pub static mut WIDTH: Option<usize> = None;
 pub static mut HEIGHT: Option<usize> = None;
 pub static mut CURVE: Option<Vec<usize>> = None;
