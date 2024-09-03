@@ -1,6 +1,6 @@
-import wasmInit from "./pkg/image_gilbert.js";
+import wasmInit, { run } from "./pkg/image_gilbert.js";
 await wasmInit();
-
+run();
 // let canvas = document.querySelector("canvas");
 // let ctx = canvas.getContext("2d");
 // let uploadInput = document.getElementById("upload");

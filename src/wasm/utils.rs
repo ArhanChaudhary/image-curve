@@ -3,7 +3,7 @@ use std::rc::Rc;
 use js_sys::{Function, JsString};
 use num::{Integer, Num, NumCast};
 use wasm_bindgen::prelude::*;
-use web_sys::{File, FileReader};
+use web_sys::{Document, File, FileReader};
 
 pub fn lerp<T: Integer + NumCast + Copy, const N: usize, R: Num + NumCast>(
     values: [T; N],
@@ -20,6 +20,24 @@ pub fn lerp<T: Integer + NumCast + Copy, const N: usize, R: Num + NumCast>(
         (percentage as f64 - percentage_jump * floored_index as f64) / percentage_jump;
     let lerp = ((ceiled_val - floored_val) * lerp_percentage + floored_val).round();
     num::cast(lerp).unwrap()
+}
+
+pub fn get_element_by_id<T: JsCast>(document: &Document, id: &str) -> T {
+    document.get_element_by_id(id).unwrap().dyn_into().unwrap()
+}
+
+pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> i32 {
+    web_sys::window()
+        .unwrap()
+        .request_animation_frame(f.as_ref().unchecked_ref())
+        .unwrap()
+}
+
+pub fn cancel_animation_frame(id: i32) {
+    web_sys::window()
+        .unwrap()
+        .cancel_animation_frame(id)
+        .unwrap();
 }
 
 #[wasm_bindgen]

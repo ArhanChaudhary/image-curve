@@ -1,8 +1,11 @@
+use crate::messaging::ReceivedWorkerMessage;
 use crate::{renderer, utils};
 use js_sys::Function;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElement, HtmlInputElement, Worker};
+use web_sys::{
+    CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElement, HtmlInputElement, Worker,
+};
 
 pub async fn uploaded_image(
     upload_input: Rc<HtmlInputElement>,
@@ -39,7 +42,11 @@ pub async fn uploaded_image(
 
 pub fn clicked_start(worker: Rc<Worker>) {
     worker
-        .post_message(&wasm_bindgen::module())
+        .post_message(&serde_wasm_bindgen::to_value(&ReceivedWorkerMessage::Start).unwrap())
         .unwrap();
+}
 
+pub fn clicked_stop(ctx: Rc<CanvasRenderingContext2d>, raf_id: i32) {
+    renderer::stop(ctx);
+    utils::cancel_animation_frame(raf_id);
 }

@@ -1,19 +1,19 @@
-use crate::{gilbert, worker, ChangeSpeedMessage, ChangeStepMessage};
+use crate::messaging::{ChangeSpeedMessage, ChangeStepMessage};
+use crate::{gilbert, worker};
 use js_sys::{Uint8ClampedArray, WebAssembly};
-use std::{cell::OnceCell, ptr, rc::Rc};
+use std::{ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
-thread_local! {
-    static CTX: OnceCell<Rc<CanvasRenderingContext2d>> = const { OnceCell::new() };
-}
+// thread_local! {
+//     static CTX: OnceCell<Rc<CanvasRenderingContext2d>> = const { OnceCell::new() };
+// }
 pub static mut WIDTH: Option<usize> = None;
 pub static mut HEIGHT: Option<usize> = None;
 pub static mut CURVE: Option<Vec<usize>> = None;
 pub static mut PIXEL_DATA: Option<Vec<u8>> = None;
 
 pub fn load_image(ctx: Rc<CanvasRenderingContext2d>) {
-    // let ctx = CTX.with(|ctx| ctx.get().unwrap().clone());
     let width = ctx.canvas().unwrap().width() as usize;
     let height = ctx.canvas().unwrap().height() as usize;
     let pixel_data = ctx
@@ -44,8 +44,7 @@ extern "C" {
     fn new(data: &Uint8ClampedArray, width: u32, height: u32) -> Result<ImageData, JsValue>;
 }
 
-#[wasm_bindgen(js_name = renderPixelData)]
-pub fn render_pixel_data() {
+pub fn render_pixel_data(ctx: Rc<CanvasRenderingContext2d>) {
     let base = unsafe { PIXEL_DATA.as_ref().unwrap().as_ptr() } as u32;
     let len = unsafe { PIXEL_DATA.as_ref().unwrap().len() } as u32;
     let sliced_pixel_data = Uint8ClampedArray::new(
@@ -64,20 +63,15 @@ pub fn render_pixel_data() {
     .dyn_into::<web_sys::ImageData>()
     .unwrap();
 
-    CTX.with(|ctx| {
-        ctx.get()
-            .unwrap()
-            .put_image_data(image_data, 0.0, 0.0)
-            .unwrap();
-    });
+    ctx.put_image_data(image_data, 0.0, 0.0).unwrap();
 }
 
-pub fn stop() {
+pub fn stop(ctx: Rc<CanvasRenderingContext2d>) {
     unsafe {
         worker::STOP_WORKER_LOOP = true;
         while ptr::read_volatile(ptr::addr_of!(worker::STOP_WORKER_LOOP)) {}
     }
-    render_pixel_data();
+    render_pixel_data(ctx);
 }
 
 const ALL_SLEEPS_PER_LOOP: [usize; 10] =
