@@ -1,14 +1,9 @@
-use handlers::RequestAnimationFrameHandle;
 use js_sys::Array;
 use serde::Serialize;
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::{
-    console, CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, Worker, WorkerOptions,
-    WorkerType,
+    CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, PointerEvent, Worker, WorkerOptions, WorkerType
 };
 
 mod gilbert;
@@ -83,21 +78,18 @@ pub fn run() {
     }
 
     {
-        let raf_handle = Rc::new(RequestAnimationFrameHandle {
-            id: Cell::new(0),
-            handle: RefCell::new(None),
-        });
-    
+        let raf_handle = Rc::new(RefCell::new(None));
+
         {
             let worker_clone = worker.clone();
             let ctx_clone = ctx.clone();
             let raf_handle_clone = raf_handle.clone();
             let onclick_closure = Closure::<dyn FnMut()>::new(move || {
-                *raf_handle_clone.handle.borrow_mut() = Some(handlers::clicked_start(
+                handlers::clicked_start(
                     ctx_clone.clone(),
                     worker_clone.clone(),
                     raf_handle_clone.clone(),
-                ));
+                );
             });
             start_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
             onclick_closure.forget();
@@ -111,6 +103,31 @@ pub fn run() {
             stop_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
             onclick_closure.forget();
         }
+    }
+
+    {
+        let ctx_clone = ctx.clone();
+        let onclick_closure = Closure::<dyn FnMut()>::new(move || {
+            handlers::clicked_step(ctx_clone.clone());
+        });
+        step_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
+        onclick_closure.forget();
+    }
+
+    {
+        let oninput_closure = Closure::<dyn FnMut(_)>::new(move |e: PointerEvent| {
+            handlers::inputted_speed(e);
+        });
+        change_speed_input.set_oninput(Some(oninput_closure.as_ref().unchecked_ref()));
+        oninput_closure.forget();
+    }
+
+    {
+        let oninput_closure = Closure::<dyn FnMut(_)>::new(move |e: PointerEvent| {
+            handlers::inputted_step(e);
+        });
+        change_step_input.set_oninput(Some(oninput_closure.as_ref().unchecked_ref()));
+        oninput_closure.forget();
     }
 }
 

@@ -37,6 +37,9 @@ features = [
     "FileList",
     "ImageData",
     "CanvasRenderingContext2d",
+    "PointerEvent",
+    "Event",
+    "EventTarget",
 ]
 
 [package.metadata.wasm-pack.profile.release]

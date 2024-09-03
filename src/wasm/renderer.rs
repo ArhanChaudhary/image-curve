@@ -1,4 +1,3 @@
-use crate::messaging::{ChangeSpeedMessage, ChangeStepMessage};
 use crate::{gilbert, worker};
 use js_sys::{Uint8ClampedArray, WebAssembly};
 use std::{ptr, rc::Rc};
@@ -74,23 +73,23 @@ pub fn stop(ctx: Rc<CanvasRenderingContext2d>) {
 const ALL_SLEEPS_PER_LOOP: [usize; 10] =
     [200_000, 175_000, 50_000, 10_000, 2500, 500, 40, 20, 10, 0];
 
-pub fn change_speed(change_speed_message: ChangeSpeedMessage) {
+pub fn change_speed(new_speed_percentage: usize) {
     let lerped: u64 = crate::utils::lerp(
         ALL_SLEEPS_PER_LOOP,
-        change_speed_message.new_speed_percentage,
+        new_speed_percentage,
     );
     unsafe {
         worker::SLEEP_PER_LOOP = lerped;
     }
 }
 
-pub fn change_step(change_step_message: ChangeStepMessage) {
+pub fn change_step(new_step_percentage: usize) {
     unsafe {
         if WIDTH.is_none() || HEIGHT.is_none() {
             return;
         }
     }
-    let mut scaled_step_percentage = (change_step_message.new_step_percentage as isize - 50) * 2;
+    let mut scaled_step_percentage = (new_step_percentage as isize - 50) * 2;
     if scaled_step_percentage == 0 {
         scaled_step_percentage = 1;
     }

@@ -1,13 +1,14 @@
 use crate::messaging::ReceivedWorkerMessage;
-use crate::{renderer, utils};
+use crate::{renderer, utils, worker};
 use js_sys::Function;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
 use wasm_bindgen::prelude::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::{
-    CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElement, HtmlInputElement, Worker,
+    CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElement, HtmlInputElement, PointerEvent,
+    Worker,
 };
 
 pub async fn uploaded_image(
@@ -44,15 +45,15 @@ pub async fn uploaded_image(
 }
 
 pub struct RequestAnimationFrameHandle {
-    pub id: Cell<i32>,
-    pub handle: RefCell<Option<Rc<Closure<dyn FnMut()>>>>,
+    pub id: i32,
+    pub _closure: Rc<Closure<dyn FnMut()>>,
 }
 
 pub fn clicked_start(
     ctx: Rc<CanvasRenderingContext2d>,
     worker: Rc<Worker>,
-    raf_handle: Rc<RequestAnimationFrameHandle>,
-) -> Rc<Closure<dyn FnMut()>> {
+    raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
+) {
     worker
         .post_message(&serde_wasm_bindgen::to_value(&ReceivedWorkerMessage::Start).unwrap())
         .unwrap();
@@ -63,22 +64,45 @@ pub fn clicked_start(
         Closure::<dyn FnMut()>::new(move || {
             renderer::render_pixel_data(ctx.clone());
             let this = this.upgrade().unwrap();
-            raf_handle_clone
-                .id
-                .set(utils::request_animation_frame(&this));
+            raf_handle_clone.borrow_mut().as_mut().unwrap().id =
+                utils::request_animation_frame(&this);
         })
     });
-    raf_handle
-        .id
-        .set(utils::request_animation_frame(&render_pixel_data_loop));
-    render_pixel_data_loop
+    *raf_handle.borrow_mut() = Some(RequestAnimationFrameHandle {
+        id: utils::request_animation_frame(&render_pixel_data_loop),
+        _closure: render_pixel_data_loop,
+    });
 }
 
 pub fn clicked_stop(
     ctx: Rc<CanvasRenderingContext2d>,
-    raf_handle: Rc<RequestAnimationFrameHandle>,
+    raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
 ) {
     renderer::stop(ctx);
-    utils::cancel_animation_frame(raf_handle.id.get());
-    mem::forget(raf_handle.handle.borrow_mut().take().unwrap());
+    let taken = raf_handle.borrow_mut().take().unwrap();
+    utils::cancel_animation_frame(taken.id);
+    mem::drop(taken);
+}
+
+pub fn clicked_step(ctx: Rc<CanvasRenderingContext2d>) {
+    worker::step();
+    renderer::render_pixel_data(ctx);
+}
+
+pub fn inputted_speed(e: PointerEvent) {
+    let new_speed_percentage = e
+        .target()
+        .unwrap()
+        .unchecked_into::<HtmlInputElement>()
+        .value_as_number() as usize;
+    renderer::change_speed(new_speed_percentage)
+}
+
+pub fn inputted_step(e: PointerEvent) {
+    let change_step_message = e
+        .target()
+        .unwrap()
+        .unchecked_into::<HtmlInputElement>()
+        .value_as_number() as usize;
+    renderer::change_step(change_step_message)
 }
