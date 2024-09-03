@@ -89,10 +89,7 @@ pub fn change_step(new_step_percentage: usize) {
             return;
         }
     }
-    let mut scaled_step_percentage = (new_step_percentage as isize - 50) * 2;
-    if scaled_step_percentage == 0 {
-        scaled_step_percentage = 1;
-    }
+    let scaled_step_percentage = (new_step_percentage as isize - 50) * 2;
     let n = unsafe { WIDTH.unwrap() * HEIGHT.unwrap() };
     let n_proportion = 2_usize
         .pow(n.ilog2() - scaled_step_percentage.unsigned_abs() as u32 * (n.ilog2() - 1) / 100);

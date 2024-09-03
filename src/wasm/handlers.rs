@@ -1,4 +1,3 @@
-use crate::messaging::ReceivedWorkerMessage;
 use crate::{renderer, utils, worker};
 use js_sys::Function;
 use std::cell::RefCell;
@@ -6,16 +5,9 @@ use std::mem;
 use std::rc::Rc;
 use wasm_bindgen::prelude::Closure;
 use wasm_bindgen::JsCast;
-use web_sys::{
-    CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElement, HtmlInputElement, PointerEvent,
-    Worker,
-};
+use web_sys::{CanvasRenderingContext2d, HtmlImageElement, HtmlInputElement, PointerEvent, Worker};
 
-pub async fn uploaded_image(
-    upload_input: Rc<HtmlInputElement>,
-    canvas: Rc<HtmlCanvasElement>,
-    ctx: Rc<CanvasRenderingContext2d>,
-) {
+pub async fn uploaded_image(upload_input: Rc<HtmlInputElement>, ctx: Rc<CanvasRenderingContext2d>) {
     let src = crate::utils::to_base64(upload_input.files().unwrap().get(0).unwrap()).await;
     let img = HtmlImageElement::new().unwrap();
     img.set_src(&src);
@@ -30,6 +22,7 @@ pub async fn uploaded_image(
     .unwrap();
     let width = img.width();
     let height = img.height();
+    let canvas = ctx.canvas().unwrap();
     canvas.set_width(width);
     canvas.set_height(height);
     ctx.draw_image_with_html_image_element_and_dw_and_dh(
@@ -55,7 +48,7 @@ pub fn clicked_start(
     raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
 ) {
     worker
-        .post_message(&serde_wasm_bindgen::to_value(&ReceivedWorkerMessage::Start).unwrap())
+        .post_message(&serde_wasm_bindgen::to_value(&worker::ReceivedWorkerMessage::Start).unwrap())
         .unwrap();
 
     let raf_handle_clone = raf_handle.clone();

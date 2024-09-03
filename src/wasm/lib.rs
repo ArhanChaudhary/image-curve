@@ -3,12 +3,12 @@ use serde::Serialize;
 use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::{
-    CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, PointerEvent, Worker, WorkerOptions, WorkerType
+    CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, PointerEvent, Worker,
+    WorkerOptions, WorkerType,
 };
 
 mod gilbert;
 mod handlers;
-mod messaging;
 mod renderer;
 mod utils;
 mod worker;
@@ -22,12 +22,9 @@ fn start() {
 #[wasm_bindgen]
 pub fn run() {
     let document = web_sys::window().unwrap().document().unwrap();
-    let canvas = Rc::new(utils::get_element_by_id::<HtmlCanvasElement>(
-        &document, "canvas",
-    ));
 
     let ctx = Rc::new(
-        canvas
+        utils::get_element_by_id::<HtmlCanvasElement>(&document, "canvas")
             .get_context_with_context_options(
                 "2d",
                 &serde_wasm_bindgen::to_value(&CanvasContextOptions {
@@ -63,46 +60,41 @@ pub fn run() {
 
     {
         let upload_input_clone = upload_input.clone();
-        let canvas_clone = canvas.clone();
         let ctx_clone = ctx.clone();
         let onchange_closure = Closure::<dyn Fn()>::new(move || {
             let upload_input_clone = upload_input_clone.clone();
-            let canvas_clone = canvas_clone.clone();
             let ctx_clone = ctx_clone.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                handlers::uploaded_image(upload_input_clone, canvas_clone, ctx_clone).await;
+                handlers::uploaded_image(upload_input_clone, ctx_clone).await;
             });
         });
         upload_input.set_onchange(Some(onchange_closure.as_ref().unchecked_ref()));
         onchange_closure.forget();
     }
 
+    let raf_handle = Rc::new(RefCell::new(None));
     {
-        let raf_handle = Rc::new(RefCell::new(None));
+        let worker_clone = worker.clone();
+        let ctx_clone = ctx.clone();
+        let raf_handle_clone = raf_handle.clone();
+        let onclick_closure = Closure::<dyn FnMut()>::new(move || {
+            handlers::clicked_start(
+                ctx_clone.clone(),
+                worker_clone.clone(),
+                raf_handle_clone.clone(),
+            );
+        });
+        start_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
+        onclick_closure.forget();
+    }
 
-        {
-            let worker_clone = worker.clone();
-            let ctx_clone = ctx.clone();
-            let raf_handle_clone = raf_handle.clone();
-            let onclick_closure = Closure::<dyn FnMut()>::new(move || {
-                handlers::clicked_start(
-                    ctx_clone.clone(),
-                    worker_clone.clone(),
-                    raf_handle_clone.clone(),
-                );
-            });
-            start_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
-            onclick_closure.forget();
-        }
-
-        {
-            let ctx_clone = ctx.clone();
-            let onclick_closure = Closure::<dyn FnMut()>::new(move || {
-                handlers::clicked_stop(ctx_clone.clone(), raf_handle.clone());
-            });
-            stop_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
-            onclick_closure.forget();
-        }
+    {
+        let ctx_clone = ctx.clone();
+        let onclick_closure = Closure::<dyn FnMut()>::new(move || {
+            handlers::clicked_stop(ctx_clone.clone(), raf_handle.clone());
+        });
+        stop_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
+        onclick_closure.forget();
     }
 
     {

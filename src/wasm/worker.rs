@@ -5,6 +5,39 @@ pub static mut STOP_WORKER_LOOP: bool = false;
 pub static mut STEPS_PER_LOOP: isize = 1;
 pub static mut SLEEP_PER_LOOP: u64 = 0;
 
+use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen(js_name = handleWorkerMessage)]
+pub fn handle_worker_message(message: JsValue) {
+    let received_worker_message: ReceivedWorkerMessage =
+        serde_wasm_bindgen::from_value(message).unwrap();
+    received_worker_message.process();
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "action", content = "payload")]
+pub enum ReceivedWorkerMessage {
+    Start,
+}
+
+#[derive(Serialize, Deserialize)]
+struct LoadImageMessage {
+    width: u32,
+    height: u32,
+    pixel_data: Vec<u8>,
+}
+
+impl ReceivedWorkerMessage {
+    pub fn process(self) {
+        match self {
+            Self::Start => {
+                start();
+            }
+        }
+    }
+}
+
 pub fn start() {
     loop {
         step();
