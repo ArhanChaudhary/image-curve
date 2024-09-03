@@ -1,6 +1,5 @@
-use crate::{gilbert, worker, CanvasInitMessage, ChangeSpeedMessage, ChangeStepMessage};
+use crate::{gilbert, worker, ChangeSpeedMessage, ChangeStepMessage};
 use js_sys::{Uint8ClampedArray, WebAssembly};
-use serde::Serialize;
 use std::{cell::OnceCell, ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
@@ -13,13 +12,8 @@ pub static mut HEIGHT: Option<usize> = None;
 pub static mut CURVE: Option<Vec<usize>> = None;
 pub static mut PIXEL_DATA: Option<Vec<u8>> = None;
 
-#[derive(Serialize)]
-pub struct CanvasContextOptions {
-    pub desynchronized: bool,
-}
-
-pub fn load_image() {
-    let ctx = CTX.with(|ctx| ctx.get().unwrap().clone());
+pub fn load_image(ctx: Rc<CanvasRenderingContext2d>) {
+    // let ctx = CTX.with(|ctx| ctx.get().unwrap().clone());
     let width = ctx.canvas().unwrap().width() as usize;
     let height = ctx.canvas().unwrap().height() as usize;
     let pixel_data = ctx
@@ -39,28 +33,6 @@ pub fn load_image() {
         CURVE = Some(curve);
         PIXEL_DATA = Some(pixel_data);
     }
-}
-
-pub fn canvas_init(canvas_init_message: CanvasInitMessage) {
-    CTX.with(|ctx| {
-        ctx.get_or_init(|| {
-            Rc::new(
-                canvas_init_message
-                    .canvas
-                    .get_context_with_context_options(
-                        "2d",
-                        &serde_wasm_bindgen::to_value(&CanvasContextOptions {
-                            desynchronized: false,
-                        })
-                        .unwrap(),
-                    )
-                    .unwrap()
-                    .unwrap()
-                    .dyn_into::<CanvasRenderingContext2d>()
-                    .unwrap(),
-            )
-        });
-    });
 }
 
 #[wasm_bindgen]

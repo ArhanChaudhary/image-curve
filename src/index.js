@@ -1,54 +1,14 @@
-import wasmInit, {
-  handleMessage,
-  renderPixelData,
-} from "./pkg/image_gilbert.js";
+import wasmInit from "./pkg/image_gilbert.js";
+await wasmInit();
 
-let canvas = document.querySelector("canvas");
-let ctx = canvas.getContext("2d");
-let uploadInput = document.getElementById("upload");
-let startInput = document.getElementById("start");
-let stepInput = document.getElementById("step");
-let stopInput = document.getElementById("stop");
-let changeSpeedInput = document.getElementById("change-speed");
-let changeStepInput = document.getElementById("change-step");
-
-let worker = new Worker("worker.js", { type: "module" });
-
-let { memory: wasmMemory } = await wasmInit();
-handleMessage({
-  action: "canvasInit",
-  payload: {
-    canvas,
-  },
-});
-worker.postMessage({
-  wasmModule: wasmInit.__wbindgen_wasm_module,
-  wasmMemory,
-});
-
-async function toBase64(file) {
-  return new Promise((resolve) => {
-    let reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-  });
-}
-
-async function uploadedImage() {
-  let src = await toBase64(uploadInput.files[0]);
-  let img = new Image();
-  img.onload = function () {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0, img.width, img.height);
-    handleMessage({
-      action: "loadImage",
-    });
-    changeSpeed();
-    changeStep();
-  };
-  img.src = src;
-}
+// let canvas = document.querySelector("canvas");
+// let ctx = canvas.getContext("2d");
+// let uploadInput = document.getElementById("upload");
+// let startInput = document.getElementById("start");
+// let stepInput = document.getElementById("step");
+// let stopInput = document.getElementById("stop");
+// let changeSpeedInput = document.getElementById("change-speed");
+// let changeStepInput = document.getElementById("change-step");
 
 let rafId;
 
@@ -96,9 +56,8 @@ function changeStep() {
   });
 }
 
-uploadInput.addEventListener("change", uploadedImage);
-startInput.addEventListener("click", start);
-stepInput.addEventListener("click", step);
-stopInput.addEventListener("click", stop);
-changeSpeedInput.addEventListener("input", changeSpeed);
-changeStepInput.addEventListener("input", changeStep);
+// startInput.addEventListener("click", start);
+// stepInput.addEventListener("click", step);
+// stopInput.addEventListener("click", stop);
+// changeSpeedInput.addEventListener("input", changeSpeed);
+// changeStepInput.addEventListener("input", changeStep);
