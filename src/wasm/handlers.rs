@@ -1,5 +1,5 @@
 use crate::{renderer, utils, worker};
-use js_sys::Function;
+use js_sys::{Function, Promise};
 use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
@@ -11,13 +11,11 @@ pub async fn uploaded_image(upload_input: Rc<HtmlInputElement>, ctx: Rc<CanvasRe
     let src = crate::utils::to_base64(upload_input.files().unwrap().get(0).unwrap()).await;
     let img = HtmlImageElement::new().unwrap();
     img.set_src(&src);
-    wasm_bindgen_futures::JsFuture::from(
-        utils::PromiseOnlyResolve::new(&mut |resolve: Function| {
+    wasm_bindgen_futures::JsFuture::from(Promise::new(
+        &mut |resolve: Function, _reject: Function| {
             img.set_onload(Some(&resolve));
-        })
-        .dyn_into::<js_sys::Promise>()
-        .unwrap(),
-    )
+        },
+    ))
     .await
     .unwrap();
     let width = img.width();
@@ -39,7 +37,7 @@ pub async fn uploaded_image(upload_input: Rc<HtmlInputElement>, ctx: Rc<CanvasRe
 
 pub struct RequestAnimationFrameHandle {
     pub id: i32,
-    pub _closure: Rc<Closure<dyn FnMut()>>,
+    pub closure: Closure<dyn FnMut()>,
 }
 
 pub fn clicked_start(
@@ -52,18 +50,15 @@ pub fn clicked_start(
         .unwrap();
 
     let raf_handle_clone = raf_handle.clone();
-    let render_pixel_data_loop = Rc::new_cyclic(|this| {
-        let this = this.clone();
-        Closure::<dyn FnMut()>::new(move || {
-            renderer::render_pixel_data(ctx.clone());
-            let this = this.upgrade().unwrap();
-            raf_handle_clone.borrow_mut().as_mut().unwrap().id =
-                utils::request_animation_frame(&this);
-        })
+    let render_pixel_data_loop = Closure::<dyn FnMut()>::new(move || {
+        renderer::render_pixel_data(ctx.clone());
+        let id =
+            utils::request_animation_frame(&raf_handle_clone.borrow().as_ref().unwrap().closure);
+        raf_handle_clone.borrow_mut().as_mut().unwrap().id = id;
     });
     *raf_handle.borrow_mut() = Some(RequestAnimationFrameHandle {
         id: utils::request_animation_frame(&render_pixel_data_loop),
-        _closure: render_pixel_data_loop,
+        closure: render_pixel_data_loop,
     });
 }
 
@@ -74,7 +69,6 @@ pub fn clicked_stop(
     renderer::stop(ctx);
     let taken = raf_handle.borrow_mut().take().unwrap();
     utils::cancel_animation_frame(taken.id);
-    mem::drop(taken);
 }
 
 pub fn clicked_step(ctx: Rc<CanvasRenderingContext2d>) {

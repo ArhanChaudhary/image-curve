@@ -1,7 +1,6 @@
-use std::rc::Rc;
-
-use js_sys::{Function, JsString};
+use js_sys::{Function, JsString, Promise};
 use num::{Integer, Num, NumCast};
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use web_sys::{Document, File, FileReader};
 
@@ -11,7 +10,7 @@ pub fn lerp<T: Integer + NumCast + Copy, const N: usize, R: Num + NumCast>(
 ) -> R {
     let percentage_jump = 100.0 / (N as f64 - 1.0);
     let floored_index = (percentage as f64 / percentage_jump) as usize;
-    if floored_index == values.len() - 1 {
+    if floored_index == N - 1 {
         return num::cast(values[N - 1]).unwrap();
     }
     let floored_val = values[floored_index].to_f64().unwrap();
@@ -40,34 +39,25 @@ pub fn cancel_animation_frame(id: i32) {
         .unwrap();
 }
 
-#[wasm_bindgen]
-extern "C" {
-    #[derive(Debug)]
-    pub type Promise;
-
-    #[wasm_bindgen(constructor)]
-    pub fn new(cb: &mut dyn FnMut(Function)) -> Promise;
-}
-pub use Promise as PromiseOnlyResolve;
-
 pub async fn to_base64(file: File) -> String {
     let reader = Rc::new(FileReader::new().unwrap());
     reader.read_as_data_url(&file).unwrap();
 
-    let promise = PromiseOnlyResolve::new(&mut |resolve: Function| {
+    let promise = Promise::new(&mut |resolve: Function, reject: Function| {
         let reader_clone = reader.clone();
         let onload = Closure::once_into_js(move || {
-            let result = reader_clone
-                .result()
-                .unwrap()
-                .dyn_into::<JsString>()
-                .unwrap();
+            let Ok(result) = reader_clone.result() else {
+                reject.call0(&JsValue::NULL).unwrap();
+                return;
+            };
+            let Ok(result) = result.dyn_into::<JsString>() else {
+                reject.call0(&JsValue::NULL).unwrap();
+                return;
+            };
             resolve.call1(&JsValue::NULL, &result).unwrap();
         });
         reader.set_onload(Some(onload.unchecked_ref()));
-    })
-    .dyn_into::<js_sys::Promise>()
-    .unwrap();
+    });
 
     wasm_bindgen_futures::JsFuture::from(promise)
         .await
