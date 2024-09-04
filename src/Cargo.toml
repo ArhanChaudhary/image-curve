@@ -40,6 +40,8 @@ features = [
     "PointerEvent",
     "Event",
     "EventTarget",
+    "DedicatedWorkerGlobalScope",
+    "AddEventListenerOptions",
 ]
 
 [package.metadata.wasm-pack.profile.release]

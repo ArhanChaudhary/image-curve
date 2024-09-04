@@ -19,8 +19,8 @@ fn start() {
     console_error_panic_hook::set_once();
 }
 
-#[wasm_bindgen]
-pub fn run() {
+#[wasm_bindgen(js_name = runMain)]
+pub fn run_main() {
     let document = web_sys::window().unwrap().document().unwrap();
 
     let ctx = Rc::new(
@@ -77,7 +77,7 @@ pub fn run() {
         let worker_clone = worker.clone();
         let ctx_clone = ctx.clone();
         let raf_handle_clone = raf_handle.clone();
-        let onclick_closure = Closure::<dyn FnMut()>::new(move || {
+        let onclick_closure = Closure::<dyn Fn()>::new(move || {
             handlers::clicked_start(
                 ctx_clone.clone(),
                 worker_clone.clone(),
@@ -90,7 +90,7 @@ pub fn run() {
 
     {
         let ctx_clone = ctx.clone();
-        let onclick_closure = Closure::<dyn FnMut()>::new(move || {
+        let onclick_closure = Closure::<dyn Fn()>::new(move || {
             handlers::clicked_stop(ctx_clone.clone(), raf_handle.clone());
         });
         stop_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
@@ -99,15 +99,20 @@ pub fn run() {
 
     {
         let ctx_clone = ctx.clone();
-        let onclick_closure = Closure::<dyn FnMut()>::new(move || {
-            handlers::clicked_step(ctx_clone.clone());
+        let worker_clone = worker.clone();
+        let onclick_closure = Closure::<dyn Fn()>::new(move || {
+            let ctx_clone = ctx_clone.clone();
+            let worker_clone = worker_clone.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                handlers::clicked_step(ctx_clone.clone(), worker_clone.clone()).await;
+            });
         });
         step_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
         onclick_closure.forget();
     }
 
     {
-        let oninput_closure = Closure::<dyn FnMut(_)>::new(move |e: PointerEvent| {
+        let oninput_closure = Closure::<dyn Fn(_)>::new(move |e: PointerEvent| {
             handlers::inputted_speed(e);
         });
         change_speed_input.set_oninput(Some(oninput_closure.as_ref().unchecked_ref()));
@@ -115,7 +120,7 @@ pub fn run() {
     }
 
     {
-        let oninput_closure = Closure::<dyn FnMut(_)>::new(move |e: PointerEvent| {
+        let oninput_closure = Closure::<dyn Fn(_)>::new(move |e: PointerEvent| {
             handlers::inputted_step(e);
         });
         change_step_input.set_oninput(Some(oninput_closure.as_ref().unchecked_ref()));

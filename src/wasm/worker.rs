@@ -1,5 +1,4 @@
-use crate::renderer;
-use std::{ptr, thread};
+use crate::{handlers, renderer};
 
 pub static mut STOP_WORKER_LOOP: bool = false;
 pub static mut STEPS_PER_LOOP: isize = 1;
@@ -7,18 +6,19 @@ pub static mut SLEEP_PER_LOOP: u64 = 0;
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
+use web_sys::DedicatedWorkerGlobalScope;
 
 #[wasm_bindgen(js_name = handleWorkerMessage)]
 pub fn handle_worker_message(message: JsValue) {
-    let received_worker_message: ReceivedWorkerMessage =
-        serde_wasm_bindgen::from_value(message).unwrap();
+    let received_worker_message: WorkerMessage = serde_wasm_bindgen::from_value(message).unwrap();
     received_worker_message.process();
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "action", content = "payload")]
-pub enum ReceivedWorkerMessage {
+pub enum WorkerMessage {
     Start,
+    Step,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -33,6 +33,15 @@ impl ReceivedWorkerMessage {
         match self {
             Self::Start => {
                 start();
+            }
+            Self::Step => {
+                step();
+                js_sys::global()
+                    .unchecked_into::<DedicatedWorkerGlobalScope>()
+                    .post_message(
+                        &serde_wasm_bindgen::to_value(&handlers::MainMessage::Stepped).unwrap(),
+                    )
+                    .unwrap();
             }
         }
     }
@@ -53,7 +62,7 @@ pub fn start() {
     }
 }
 
-pub fn step() {
+fn step() {
     let width = unsafe { renderer::WIDTH.unwrap() };
     let height = unsafe { renderer::HEIGHT.unwrap() };
     let curve = unsafe { renderer::CURVE.as_mut().unwrap().as_mut_ptr() };
