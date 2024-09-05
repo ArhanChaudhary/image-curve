@@ -73,7 +73,9 @@ fn step() {
             unsafe {
                 swap_pixel(
                     curve.as_mut_ptr().add(curve_index),
-                    curve.as_mut_ptr().add((curve_index + curve_len - steps) % curve_len),
+                    curve
+                        .as_mut_ptr()
+                        .add((curve_index + curve_len - steps) % curve_len),
                     pixel_data.as_mut_ptr(),
                 );
             }
@@ -84,7 +86,9 @@ fn step() {
             unsafe {
                 swap_pixel(
                     curve.as_mut_ptr().add(curve_index),
-                    curve.as_mut_ptr().add((curve_index + curve_len - steps) % curve_len),
+                    curve
+                        .as_mut_ptr()
+                        .add((curve_index + curve_len - steps) % curve_len),
                     pixel_data.as_mut_ptr(),
                 );
             }

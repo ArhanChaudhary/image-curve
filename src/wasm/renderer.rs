@@ -1,8 +1,7 @@
-use crate::{gilbert, worker};
+use crate::{gilbert, worker, GlobalState};
 use js_sys::{Uint8ClampedArray, WebAssembly};
-use std::{cell::OnceCell, ptr, rc::Rc};
+use std::{ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
-use web_sys::CanvasRenderingContext2d;
 
 pub static mut CURVE: Option<Vec<usize>> = None;
 pub static mut PIXEL_DATA: Option<Vec<u8>> = None;
@@ -13,13 +12,11 @@ pub struct ImageDimensions {
     height: usize,
 }
 
-pub fn load_image(
-    ctx: Rc<CanvasRenderingContext2d>,
-    image_dimensions: Rc<OnceCell<ImageDimensions>>,
-) {
-    let width = ctx.canvas().unwrap().width() as usize;
-    let height = ctx.canvas().unwrap().height() as usize;
-    let pixel_data = ctx
+pub fn load_image(global_state: Rc<GlobalState>) {
+    let width = global_state.ctx.canvas().unwrap().width() as usize;
+    let height = global_state.ctx.canvas().unwrap().height() as usize;
+    let pixel_data = global_state
+        .ctx
         .get_image_data(0.0, 0.0, width as f64, height as f64)
         .unwrap()
         .data()
@@ -34,7 +31,8 @@ pub fn load_image(
         CURVE = Some(curve);
         PIXEL_DATA = Some(pixel_data);
     }
-    image_dimensions
+    global_state
+        .image_dimensions
         .set(ImageDimensions { width, height })
         .unwrap();
 }
@@ -48,10 +46,7 @@ extern "C" {
     fn new(data: &Uint8ClampedArray, width: u32, height: u32) -> Result<ImageData, JsValue>;
 }
 
-pub fn render_pixel_data(
-    ctx: Rc<CanvasRenderingContext2d>,
-    image_dimensions: Rc<OnceCell<ImageDimensions>>,
-) {
+pub fn render_pixel_data(global_state: Rc<GlobalState>) {
     let pixel_data = unsafe { PIXEL_DATA.as_ref().unwrap() };
     let base = pixel_data.as_ptr() as u32;
     let len = pixel_data.len() as u32;
@@ -64,22 +59,25 @@ pub fn render_pixel_data(
 
     let image_data = &ImageData::new(
         &sliced_pixel_data,
-        image_dimensions.get().unwrap().width as u32,
-        image_dimensions.get().unwrap().height as u32,
+        global_state.image_dimensions.get().unwrap().width as u32,
+        global_state.image_dimensions.get().unwrap().height as u32,
     )
     .unwrap()
     .dyn_into::<web_sys::ImageData>()
     .unwrap();
 
-    ctx.put_image_data(image_data, 0.0, 0.0).unwrap();
+    global_state
+        .ctx
+        .put_image_data(image_data, 0.0, 0.0)
+        .unwrap();
 }
 
-pub fn stop(ctx: Rc<CanvasRenderingContext2d>, image_dimensions: Rc<OnceCell<ImageDimensions>>) {
+pub fn stop(global_state: Rc<GlobalState>) {
     unsafe {
         worker::STOP_WORKER_LOOP = true;
         while ptr::read_volatile(ptr::addr_of!(worker::STOP_WORKER_LOOP)) {}
     }
-    render_pixel_data(ctx, image_dimensions);
+    render_pixel_data(global_state);
 }
 
 const ALL_SLEEPS_PER_LOOP: [usize; 10] =
@@ -92,9 +90,9 @@ pub fn change_speed(new_speed_percentage: usize) {
     }
 }
 
-pub fn change_step(new_step_percentage: usize, image_dimensions: Rc<OnceCell<ImageDimensions>>) {
+pub fn change_step(new_step_percentage: usize, global_state: Rc<GlobalState>) {
     let scaled_step_percentage = (new_step_percentage as isize - 50) * 2;
-    let ImageDimensions { width, height } = image_dimensions.get().unwrap();
+    let ImageDimensions { width, height } = global_state.image_dimensions.get().unwrap();
     let curve_len = width * height;
     let curve_len_proportion = 2_usize.pow(
         curve_len.ilog2()
