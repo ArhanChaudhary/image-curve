@@ -1,7 +1,8 @@
+use crate::renderer::ImageDimensions;
 use crate::{renderer, utils, worker};
 use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::{prelude::Closure, JsValue};
@@ -10,7 +11,11 @@ use web_sys::{
     Worker,
 };
 
-pub async fn uploaded_image(upload_input: Rc<HtmlInputElement>, ctx: Rc<CanvasRenderingContext2d>) {
+pub async fn uploaded_image(
+    upload_input: Rc<HtmlInputElement>,
+    ctx: Rc<CanvasRenderingContext2d>,
+    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+) {
     let src = crate::utils::to_base64(upload_input.files().unwrap().get(0).unwrap()).await;
     let img = HtmlImageElement::new().unwrap();
     img.set_src(&src);
@@ -34,7 +39,7 @@ pub async fn uploaded_image(upload_input: Rc<HtmlInputElement>, ctx: Rc<CanvasRe
         height as f64,
     )
     .unwrap();
-    renderer::load_image(ctx);
+    renderer::load_image(ctx, image_dimensions);
     // change speed / step here TODO:
 }
 
@@ -47,6 +52,7 @@ pub fn clicked_start(
     ctx: Rc<CanvasRenderingContext2d>,
     worker: Rc<Worker>,
     raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
+    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
 ) {
     if raf_handle.borrow().is_some() {
         return;
@@ -57,7 +63,7 @@ pub fn clicked_start(
 
     let raf_handle_clone = raf_handle.clone();
     let render_pixel_data_loop = Closure::<dyn FnMut()>::new(move || {
-        renderer::render_pixel_data(ctx.clone());
+        renderer::render_pixel_data(ctx.clone(), image_dimensions.clone());
         let id =
             utils::request_animation_frame(&raf_handle_clone.borrow().as_ref().unwrap().closure);
         raf_handle_clone.borrow_mut().as_mut().unwrap().id = id;
@@ -71,8 +77,9 @@ pub fn clicked_start(
 pub fn clicked_stop(
     ctx: Rc<CanvasRenderingContext2d>,
     raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
+    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
 ) {
-    renderer::stop(ctx);
+    renderer::stop(ctx, image_dimensions);
     let taken = raf_handle.borrow_mut().take().unwrap();
     utils::cancel_animation_frame(taken.id);
 }
@@ -83,7 +90,12 @@ pub enum MainMessage {
     Stepped,
 }
 
-pub async fn clicked_step(ctx: Rc<CanvasRenderingContext2d>, worker: Rc<Worker>, raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>) {
+pub async fn clicked_step(
+    ctx: Rc<CanvasRenderingContext2d>,
+    worker: Rc<Worker>,
+    raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
+    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+) {
     if raf_handle.borrow().is_some() {
         return;
     }
@@ -123,7 +135,7 @@ pub async fn clicked_step(ctx: Rc<CanvasRenderingContext2d>, worker: Rc<Worker>,
     .await
     .unwrap();
 
-    renderer::render_pixel_data(ctx);
+    renderer::render_pixel_data(ctx, image_dimensions);
 }
 
 pub fn inputted_speed(e: PointerEvent) {
@@ -135,11 +147,11 @@ pub fn inputted_speed(e: PointerEvent) {
     renderer::change_speed(new_speed_percentage)
 }
 
-pub fn inputted_step(e: PointerEvent) {
+pub fn inputted_step(e: PointerEvent, image_dimensions: Rc<Cell<Option<ImageDimensions>>>) {
     let change_step_message = e
         .target()
         .unwrap()
         .unchecked_into::<HtmlInputElement>()
         .value_as_number() as usize;
-    renderer::change_step(change_step_message)
+    renderer::change_step(change_step_message, image_dimensions)
 }

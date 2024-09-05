@@ -1,15 +1,22 @@
 use crate::{gilbert, worker};
 use js_sys::{Uint8ClampedArray, WebAssembly};
-use std::{ptr, rc::Rc};
+use std::{cell::Cell, ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
-pub static mut WIDTH: Option<usize> = None;
-pub static mut HEIGHT: Option<usize> = None;
 pub static mut CURVE: Option<Vec<usize>> = None;
 pub static mut PIXEL_DATA: Option<Vec<u8>> = None;
 
-pub fn load_image(ctx: Rc<CanvasRenderingContext2d>) {
+#[derive(Copy, Clone)]
+pub struct ImageDimensions {
+    width: usize,
+    height: usize,
+}
+
+pub fn load_image(
+    ctx: Rc<CanvasRenderingContext2d>,
+    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+) {
     let width = ctx.canvas().unwrap().width() as usize;
     let height = ctx.canvas().unwrap().height() as usize;
     let pixel_data = ctx
@@ -24,11 +31,10 @@ pub fn load_image(ctx: Rc<CanvasRenderingContext2d>) {
         })
         .collect();
     unsafe {
-        WIDTH = Some(width);
-        HEIGHT = Some(height);
         CURVE = Some(curve);
         PIXEL_DATA = Some(pixel_data);
     }
+    image_dimensions.set(Some(ImageDimensions { width, height }));
 }
 
 #[wasm_bindgen]
@@ -40,9 +46,13 @@ extern "C" {
     fn new(data: &Uint8ClampedArray, width: u32, height: u32) -> Result<ImageData, JsValue>;
 }
 
-pub fn render_pixel_data(ctx: Rc<CanvasRenderingContext2d>) {
-    let base = unsafe { PIXEL_DATA.as_ref().unwrap().as_ptr() } as u32;
-    let len = unsafe { PIXEL_DATA.as_ref().unwrap().len() } as u32;
+pub fn render_pixel_data(
+    ctx: Rc<CanvasRenderingContext2d>,
+    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+) {
+    let pixel_data = unsafe { PIXEL_DATA.as_ref().unwrap() };
+    let base = pixel_data.as_ptr() as u32;
+    let len = pixel_data.len() as u32;
     let sliced_pixel_data = Uint8ClampedArray::new(
         &wasm_bindgen::memory()
             .unchecked_into::<WebAssembly::Memory>()
@@ -52,8 +62,8 @@ pub fn render_pixel_data(ctx: Rc<CanvasRenderingContext2d>) {
 
     let image_data = &ImageData::new(
         &sliced_pixel_data,
-        unsafe { WIDTH.unwrap() } as u32,
-        unsafe { HEIGHT.unwrap() } as u32,
+        image_dimensions.get().unwrap().width as u32,
+        image_dimensions.get().unwrap().height as u32,
     )
     .unwrap()
     .dyn_into::<web_sys::ImageData>()
@@ -62,12 +72,15 @@ pub fn render_pixel_data(ctx: Rc<CanvasRenderingContext2d>) {
     ctx.put_image_data(image_data, 0.0, 0.0).unwrap();
 }
 
-pub fn stop(ctx: Rc<CanvasRenderingContext2d>) {
+pub fn stop(
+    ctx: Rc<CanvasRenderingContext2d>,
+    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+) {
     unsafe {
         worker::STOP_WORKER_LOOP = true;
         while ptr::read_volatile(ptr::addr_of!(worker::STOP_WORKER_LOOP)) {}
     }
-    render_pixel_data(ctx);
+    render_pixel_data(ctx, image_dimensions);
 }
 
 const ALL_SLEEPS_PER_LOOP: [usize; 10] =
@@ -80,18 +93,19 @@ pub fn change_speed(new_speed_percentage: usize) {
     }
 }
 
-pub fn change_step(new_step_percentage: usize) {
-    unsafe {
-        if WIDTH.is_none() || HEIGHT.is_none() {
-            return;
-        }
-    }
+pub fn change_step(
+    new_step_percentage: usize,
+    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+) {
     let scaled_step_percentage = (new_step_percentage as isize - 50) * 2;
-    let n = unsafe { WIDTH.unwrap() * HEIGHT.unwrap() };
-    let n_proportion = 2_usize
-        .pow(n.ilog2() - scaled_step_percentage.unsigned_abs() as u32 * (n.ilog2() - 1) / 100);
-    let steps_per_loop = (n / n_proportion) as isize * scaled_step_percentage.signum();
+    let ImageDimensions { width, height } = image_dimensions.get().unwrap();
+    let curve_len = width * height;
+    let curve_len_proportion = 2_usize.pow(
+        curve_len.ilog2()
+            - scaled_step_percentage.unsigned_abs() as u32 * (curve_len.ilog2() - 1) / 100,
+    );
+    let steps = (curve_len / curve_len_proportion) as isize * scaled_step_percentage.signum();
     unsafe {
-        worker::STEPS = steps_per_loop;
+        worker::STEPS = steps;
     }
 }

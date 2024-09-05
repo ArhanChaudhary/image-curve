@@ -1,6 +1,10 @@
 use js_sys::Array;
+use renderer::ImageDimensions;
 use serde::Serialize;
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 use wasm_bindgen::prelude::*;
 use web_sys::{
     CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, PointerEvent, Worker,
@@ -58,30 +62,36 @@ pub fn run_main() {
     worker_message.push(&wasm_bindgen::memory());
     worker.post_message(&worker_message).unwrap();
 
+    let image_dimensions: Rc<Cell<Option<ImageDimensions>>> = Rc::new(Cell::new(None));
+    let raf_handle = Rc::new(RefCell::new(None));
     {
         let upload_input_clone = upload_input.clone();
         let ctx_clone = ctx.clone();
+        let image_dimensions_clone = image_dimensions.clone();
         let onchange_closure = Closure::<dyn Fn()>::new(move || {
             let upload_input_clone = upload_input_clone.clone();
             let ctx_clone = ctx_clone.clone();
+            let image_dimensions_clone = image_dimensions_clone.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                handlers::uploaded_image(upload_input_clone, ctx_clone).await;
+                handlers::uploaded_image(upload_input_clone, ctx_clone, image_dimensions_clone)
+                    .await;
             });
         });
         upload_input.set_onchange(Some(onchange_closure.as_ref().unchecked_ref()));
         onchange_closure.forget();
     }
 
-    let raf_handle = Rc::new(RefCell::new(None));
     {
         let worker_clone = worker.clone();
         let ctx_clone = ctx.clone();
         let raf_handle_clone = raf_handle.clone();
+        let image_dimensions_clone = image_dimensions.clone();
         let onclick_closure = Closure::<dyn Fn()>::new(move || {
             handlers::clicked_start(
                 ctx_clone.clone(),
                 worker_clone.clone(),
                 raf_handle_clone.clone(),
+                image_dimensions_clone.clone(),
             );
         });
         start_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
@@ -91,8 +101,13 @@ pub fn run_main() {
     {
         let ctx_clone = ctx.clone();
         let raf_handle_clone = raf_handle.clone();
+        let image_dimensions_clone = image_dimensions.clone();
         let onclick_closure = Closure::<dyn Fn()>::new(move || {
-            handlers::clicked_stop(ctx_clone.clone(), raf_handle_clone.clone());
+            handlers::clicked_stop(
+                ctx_clone.clone(),
+                raf_handle_clone.clone(),
+                image_dimensions_clone.clone(),
+            );
         });
         stop_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
         onclick_closure.forget();
@@ -102,12 +117,20 @@ pub fn run_main() {
         let worker_clone = worker.clone();
         let ctx_clone = ctx.clone();
         let raf_handle_clone = raf_handle.clone();
+        let image_dimensions_clone = image_dimensions.clone();
         let onclick_closure = Closure::<dyn Fn()>::new(move || {
             let ctx_clone = ctx_clone.clone();
             let worker_clone = worker_clone.clone();
             let raf_handle_clone = raf_handle_clone.clone();
+            let image_dimensions_clone = image_dimensions_clone.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                handlers::clicked_step(ctx_clone.clone(), worker_clone.clone(), raf_handle_clone.clone()).await;
+                handlers::clicked_step(
+                    ctx_clone.clone(),
+                    worker_clone.clone(),
+                    raf_handle_clone.clone(),
+                    image_dimensions_clone.clone(),
+                )
+                .await;
             });
         });
         step_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
@@ -123,8 +146,9 @@ pub fn run_main() {
     }
 
     {
+        let image_dimensions_clone = image_dimensions.clone();
         let oninput_closure = Closure::<dyn Fn(_)>::new(move |e: PointerEvent| {
-            handlers::inputted_step(e);
+            handlers::inputted_step(e, image_dimensions_clone.clone());
         });
         change_step_input.set_oninput(Some(oninput_closure.as_ref().unchecked_ref()));
         oninput_closure.forget();

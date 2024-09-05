@@ -24,8 +24,6 @@ pub enum WorkerMessage {
 
 #[derive(Serialize, Deserialize)]
 struct LoadImageMessage {
-    width: u32,
-    height: u32,
     pixel_data: Vec<u8>,
 }
 
