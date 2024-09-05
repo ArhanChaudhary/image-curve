@@ -3,7 +3,7 @@ use js_sys::{Uint8ClampedArray, WebAssembly};
 use std::{ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
 
-pub static mut CURVE: Option<Vec<usize>> = None;
+pub static mut PATH: Option<Vec<usize>> = None;
 pub static mut PIXEL_DATA: Option<Vec<u8>> = None;
 
 #[derive(Copy, Clone, Debug)]
@@ -21,14 +21,14 @@ pub fn load_image(global_state: Rc<GlobalState>) {
         .unwrap()
         .data()
         .0;
-    let curve = (0..(width * height))
+    let path = (0..(width * height))
         .map(|idx| {
             let p = gilbert::gilbert_d2xy(idx as i32, width as i32, height as i32);
             ((p.y as usize) * width + (p.x as usize)) * 4
         })
         .collect();
     unsafe {
-        CURVE = Some(curve);
+        PATH = Some(path);
         PIXEL_DATA = Some(pixel_data);
     }
     global_state
@@ -93,12 +93,12 @@ pub fn change_speed(new_speed_percentage: usize) {
 pub fn change_step(new_step_percentage: usize, global_state: Rc<GlobalState>) {
     let scaled_step_percentage = (new_step_percentage as isize - 50) * 2;
     let ImageDimensions { width, height } = global_state.image_dimensions.get().unwrap();
-    let curve_len = width * height;
-    let curve_len_proportion = 2_usize.pow(
-        curve_len.ilog2()
-            - scaled_step_percentage.unsigned_abs() as u32 * (curve_len.ilog2() - 1) / 100,
+    let path_len = width * height;
+    let path_len_proportion = 2_usize.pow(
+        path_len.ilog2()
+            - scaled_step_percentage.unsigned_abs() as u32 * (path_len.ilog2() - 1) / 100,
     );
-    let steps = (curve_len / curve_len_proportion) as isize * scaled_step_percentage.signum();
+    let steps = (path_len / path_len_proportion) as isize * scaled_step_percentage.signum();
     unsafe {
         worker::STEPS = steps;
     }

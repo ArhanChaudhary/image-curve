@@ -1,10 +1,83 @@
-use crate::{renderer, utils, worker, GlobalState};
+use crate::{renderer, utils, worker, GlobalState, LocalState};
 use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::{prelude::Closure, JsValue};
 use web_sys::{HtmlImageElement, HtmlInputElement, MessageEvent, PointerEvent};
+
+pub fn initialize_handlers(global_state: Rc<GlobalState>, local_state: LocalState) {
+    {
+        let global_state_clone = global_state.clone();
+        let onchange_closure = Closure::<dyn Fn()>::new(move || {
+            let global_state_clone = global_state_clone.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                uploaded_image(global_state_clone.clone()).await;
+            });
+        });
+        global_state
+            .upload_input
+            .set_onchange(Some(onchange_closure.as_ref().unchecked_ref()));
+        onchange_closure.forget();
+    }
+
+    {
+        let global_state_clone = global_state.clone();
+        let onclick_closure = Closure::<dyn Fn()>::new(move || {
+            clicked_start(global_state_clone.clone());
+        });
+        global_state
+            .start_input
+            .set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
+        onclick_closure.forget();
+    }
+
+    {
+        let global_state_clone = global_state.clone();
+        let onclick_closure = Closure::<dyn Fn()>::new(move || {
+            clicked_stop(global_state_clone.clone());
+        });
+        local_state
+            .stop_input
+            .set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
+        onclick_closure.forget();
+    }
+
+    {
+        let global_state_clone = global_state.clone();
+        let onclick_closure = Closure::<dyn Fn()>::new(move || {
+            let global_state_clone = global_state_clone.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                clicked_step(global_state_clone.clone()).await;
+            });
+        });
+        local_state
+            .step_input
+            .set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
+        onclick_closure.forget();
+    }
+
+    {
+        let oninput_closure = Closure::<dyn Fn(_)>::new(move |e: PointerEvent| {
+            inputted_speed(e);
+        });
+        local_state
+            .change_speed_input
+            .set_oninput(Some(oninput_closure.as_ref().unchecked_ref()));
+        oninput_closure.forget();
+    }
+
+    {
+        let global_state_clone = global_state.clone();
+        let oninput_closure = Closure::<dyn Fn(_)>::new(move |e: PointerEvent| {
+            inputted_step(e, global_state_clone.clone());
+        });
+        local_state
+            .change_step_input
+            .set_oninput(Some(oninput_closure.as_ref().unchecked_ref()));
+        oninput_closure.forget();
+    }
+}
 
 pub async fn uploaded_image(global_state: Rc<GlobalState>) {
     let src =
@@ -138,14 +211,14 @@ pub fn inputted_speed(e: PointerEvent) {
         .unwrap()
         .unchecked_into::<HtmlInputElement>()
         .value_as_number() as usize;
-    renderer::change_speed(new_speed_percentage)
+    renderer::change_speed(new_speed_percentage);
 }
 
 pub fn inputted_step(e: PointerEvent, global_state: Rc<GlobalState>) {
-    let change_step_message = e
+    let new_step_percentage = e
         .target()
         .unwrap()
         .unchecked_into::<HtmlInputElement>()
         .value_as_number() as usize;
-    renderer::change_step(change_step_message, global_state);
+    renderer::change_step(new_step_percentage, global_state);
 }

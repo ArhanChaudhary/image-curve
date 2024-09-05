@@ -63,33 +63,30 @@ fn start() {
 }
 
 fn step() {
-    let curve = unsafe { renderer::CURVE.as_mut().unwrap() };
-    let pixel_data = unsafe { renderer::PIXEL_DATA.as_mut().unwrap() };
-    let curve_len = curve.len();
+    let path = unsafe { renderer::PATH.as_mut().unwrap() };
+    let path_len = path.len();
+    let path_ptr = path.as_mut_ptr();
+    let pixel_data_ptr = unsafe { renderer::PIXEL_DATA.as_mut().unwrap().as_mut_ptr() };
     let steps = unsafe { STEPS };
     if steps > 0 {
         let steps = steps as usize;
-        for curve_index in 0..(curve_len - steps) {
+        for path_index in 0..(path_len - steps) {
             unsafe {
                 swap_pixel(
-                    curve.as_mut_ptr().add(curve_index),
-                    curve
-                        .as_mut_ptr()
-                        .add((curve_index + curve_len - steps) % curve_len),
-                    pixel_data.as_mut_ptr(),
+                    path_ptr.add(path_index),
+                    path_ptr.add((path_index + path_len - steps) % path_len),
+                    pixel_data_ptr,
                 );
             }
         }
     } else {
         let steps = steps.unsigned_abs();
-        for curve_index in (steps..curve_len).rev() {
+        for path_index in (steps..path_len).rev() {
             unsafe {
                 swap_pixel(
-                    curve.as_mut_ptr().add(curve_index),
-                    curve
-                        .as_mut_ptr()
-                        .add((curve_index + curve_len - steps) % curve_len),
-                    pixel_data.as_mut_ptr(),
+                    path_ptr.add(path_index),
+                    path_ptr.add((path_index + path_len - steps) % path_len),
+                    pixel_data_ptr,
                 );
             }
         }
@@ -99,18 +96,18 @@ fn step() {
 unsafe fn swap_pixel(
     first_pixel_ptr: *mut usize,
     second_pixel_ptr: *mut usize,
-    pixel_data: *mut u8,
+    pixel_data_ptr: *mut u8,
 ) {
     core::ptr::swap(
-        pixel_data.add(*first_pixel_ptr),
-        pixel_data.add(*second_pixel_ptr),
+        pixel_data_ptr.add(*first_pixel_ptr),
+        pixel_data_ptr.add(*second_pixel_ptr),
     );
     core::ptr::swap(
-        pixel_data.add(*first_pixel_ptr + 1),
-        pixel_data.add(*second_pixel_ptr + 1),
+        pixel_data_ptr.add(*first_pixel_ptr + 1),
+        pixel_data_ptr.add(*second_pixel_ptr + 1),
     );
     core::ptr::swap(
-        pixel_data.add(*first_pixel_ptr + 2),
-        pixel_data.add(*second_pixel_ptr + 2),
+        pixel_data_ptr.add(*first_pixel_ptr + 2),
+        pixel_data_ptr.add(*second_pixel_ptr + 2),
     );
 }
