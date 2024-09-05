@@ -90,21 +90,24 @@ pub fn run_main() {
 
     {
         let ctx_clone = ctx.clone();
+        let raf_handle_clone = raf_handle.clone();
         let onclick_closure = Closure::<dyn Fn()>::new(move || {
-            handlers::clicked_stop(ctx_clone.clone(), raf_handle.clone());
+            handlers::clicked_stop(ctx_clone.clone(), raf_handle_clone.clone());
         });
         stop_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
         onclick_closure.forget();
     }
 
     {
-        let ctx_clone = ctx.clone();
         let worker_clone = worker.clone();
+        let ctx_clone = ctx.clone();
+        let raf_handle_clone = raf_handle.clone();
         let onclick_closure = Closure::<dyn Fn()>::new(move || {
             let ctx_clone = ctx_clone.clone();
             let worker_clone = worker_clone.clone();
+            let raf_handle_clone = raf_handle_clone.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                handlers::clicked_step(ctx_clone.clone(), worker_clone.clone()).await;
+                handlers::clicked_step(ctx_clone.clone(), worker_clone.clone(), raf_handle_clone.clone()).await;
             });
         });
         step_input.set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));

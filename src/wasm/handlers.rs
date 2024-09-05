@@ -48,6 +48,9 @@ pub fn clicked_start(
     worker: Rc<Worker>,
     raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
 ) {
+    if raf_handle.borrow().is_some() {
+        return;
+    }
     worker
         .post_message(&serde_wasm_bindgen::to_value(&worker::WorkerMessage::Start).unwrap())
         .unwrap();
@@ -80,7 +83,10 @@ pub enum MainMessage {
     Stepped,
 }
 
-pub async fn clicked_step(ctx: Rc<CanvasRenderingContext2d>, worker: Rc<Worker>) {
+pub async fn clicked_step(ctx: Rc<CanvasRenderingContext2d>, worker: Rc<Worker>, raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>) {
+    if raf_handle.borrow().is_some() {
+        return;
+    }
     worker
         .post_message(&serde_wasm_bindgen::to_value(&worker::WorkerMessage::Step).unwrap())
         .unwrap();

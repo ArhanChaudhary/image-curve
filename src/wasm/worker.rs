@@ -1,8 +1,9 @@
 use crate::{handlers, renderer};
+use std::{ptr, thread};
 
 pub static mut STOP_WORKER_LOOP: bool = false;
-pub static mut STEPS_PER_LOOP: isize = 1;
-pub static mut SLEEP_PER_LOOP: u64 = 0;
+pub static mut STEPS: isize = 1;
+pub static mut SLEEP: u64 = 0;
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -28,8 +29,8 @@ struct LoadImageMessage {
     pixel_data: Vec<u8>,
 }
 
-impl ReceivedWorkerMessage {
-    pub fn process(self) {
+impl WorkerMessage {
+    fn process(self) {
         match self {
             Self::Start => {
                 start();
@@ -47,11 +48,12 @@ impl ReceivedWorkerMessage {
     }
 }
 
-pub fn start() {
+fn start() {
     loop {
         step();
-        if unsafe { SLEEP_PER_LOOP } != 0 {
-            thread::sleep(std::time::Duration::from_micros(unsafe { SLEEP_PER_LOOP }));
+        let sleep = unsafe { SLEEP };
+        if sleep != 0 {
+            thread::sleep(std::time::Duration::from_micros(sleep));
         }
         unsafe {
             if ptr::read_volatile(ptr::addr_of!(STOP_WORKER_LOOP)) {
@@ -63,51 +65,50 @@ pub fn start() {
 }
 
 fn step() {
-    let width = unsafe { renderer::WIDTH.unwrap() };
-    let height = unsafe { renderer::HEIGHT.unwrap() };
-    let curve = unsafe { renderer::CURVE.as_mut().unwrap().as_mut_ptr() };
-    let pixel_data = unsafe { renderer::PIXEL_DATA.as_mut().unwrap().as_mut_ptr() };
-
-    let n = width * height;
-    unsafe {
-        if STEPS_PER_LOOP > 0 {
-            let step = STEPS_PER_LOOP as usize;
-            for curve_index in 0..(n - step) {
-                let pixel_index = *curve.add(curve_index);
-                let prev_pixel_index = *curve.add((curve_index + n - step) % n);
-
-                core::ptr::swap(
-                    pixel_data.add(pixel_index),
-                    pixel_data.add(prev_pixel_index),
-                );
-                core::ptr::swap(
-                    pixel_data.add(pixel_index + 1),
-                    pixel_data.add(prev_pixel_index + 1),
-                );
-                core::ptr::swap(
-                    pixel_data.add(pixel_index + 2),
-                    pixel_data.add(prev_pixel_index + 2),
+    let curve = unsafe { renderer::CURVE.as_mut().unwrap() };
+    let pixel_data = unsafe { renderer::PIXEL_DATA.as_mut().unwrap() };
+    let curve_len = curve.len();
+    let steps = unsafe { STEPS };
+    if steps > 0 {
+        let steps = steps as usize;
+        for curve_index in 0..(curve_len - steps) {
+            unsafe {
+                swap_pixel(
+                    curve.as_mut_ptr().add(curve_index),
+                    curve.as_mut_ptr().add((curve_index + curve_len - steps) % curve_len),
+                    pixel_data.as_mut_ptr(),
                 );
             }
-        } else {
-            let step = STEPS_PER_LOOP.unsigned_abs();
-            for curve_index in (step..n).rev() {
-                let pixel_index = *curve.add(curve_index);
-                let prev_pixel_index = *curve.add((curve_index + n - step) % n);
-
-                core::ptr::swap(
-                    pixel_data.add(pixel_index),
-                    pixel_data.add(prev_pixel_index),
-                );
-                core::ptr::swap(
-                    pixel_data.add(pixel_index + 1),
-                    pixel_data.add(prev_pixel_index + 1),
-                );
-                core::ptr::swap(
-                    pixel_data.add(pixel_index + 2),
-                    pixel_data.add(prev_pixel_index + 2),
+        }
+    } else {
+        let steps = steps.unsigned_abs();
+        for curve_index in (steps..curve_len).rev() {
+            unsafe {
+                swap_pixel(
+                    curve.as_mut_ptr().add(curve_index),
+                    curve.as_mut_ptr().add((curve_index + curve_len - steps) % curve_len),
+                    pixel_data.as_mut_ptr(),
                 );
             }
         }
     }
+}
+
+unsafe fn swap_pixel(
+    first_pixel_ptr: *mut usize,
+    second_pixel_ptr: *mut usize,
+    pixel_data: *mut u8,
+) {
+    core::ptr::swap(
+        pixel_data.add(*first_pixel_ptr),
+        pixel_data.add(*second_pixel_ptr),
+    );
+    core::ptr::swap(
+        pixel_data.add(*first_pixel_ptr + 1),
+        pixel_data.add(*second_pixel_ptr + 1),
+    );
+    core::ptr::swap(
+        pixel_data.add(*first_pixel_ptr + 2),
+        pixel_data.add(*second_pixel_ptr + 2),
+    );
 }

@@ -74,12 +74,9 @@ const ALL_SLEEPS_PER_LOOP: [usize; 10] =
     [200_000, 175_000, 50_000, 10_000, 2500, 500, 40, 20, 10, 0];
 
 pub fn change_speed(new_speed_percentage: usize) {
-    let lerped: u64 = crate::utils::lerp(
-        ALL_SLEEPS_PER_LOOP,
-        new_speed_percentage,
-    );
+    let lerped: u64 = crate::utils::lerp(ALL_SLEEPS_PER_LOOP, new_speed_percentage);
     unsafe {
-        worker::SLEEP_PER_LOOP = lerped;
+        worker::SLEEP = lerped;
     }
 }
 
@@ -95,6 +92,6 @@ pub fn change_step(new_step_percentage: usize) {
         .pow(n.ilog2() - scaled_step_percentage.unsigned_abs() as u32 * (n.ilog2() - 1) / 100);
     let steps_per_loop = (n / n_proportion) as isize * scaled_step_percentage.signum();
     unsafe {
-        worker::STEPS_PER_LOOP = steps_per_loop;
+        worker::STEPS = steps_per_loop;
     }
 }
