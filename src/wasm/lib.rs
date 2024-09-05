@@ -2,7 +2,7 @@ use js_sys::Array;
 use renderer::ImageDimensions;
 use serde::Serialize;
 use std::{
-    cell::{Cell, RefCell},
+    cell::{OnceCell, RefCell},
     rc::Rc,
 };
 use wasm_bindgen::prelude::*;
@@ -62,7 +62,7 @@ pub fn run_main() {
     worker_message.push(&wasm_bindgen::memory());
     worker.post_message(&worker_message).unwrap();
 
-    let image_dimensions: Rc<Cell<Option<ImageDimensions>>> = Rc::new(Cell::new(None));
+    let image_dimensions: Rc<OnceCell<ImageDimensions>> = Rc::new(OnceCell::new());
     let raf_handle = Rc::new(RefCell::new(None));
     {
         let upload_input_clone = upload_input.clone();

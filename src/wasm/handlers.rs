@@ -2,7 +2,7 @@ use crate::renderer::ImageDimensions;
 use crate::{renderer, utils, worker};
 use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize};
-use std::cell::{Cell, RefCell};
+use std::cell::{OnceCell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::{prelude::Closure, JsValue};
@@ -14,7 +14,7 @@ use web_sys::{
 pub async fn uploaded_image(
     upload_input: Rc<HtmlInputElement>,
     ctx: Rc<CanvasRenderingContext2d>,
-    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+    image_dimensions: Rc<OnceCell<ImageDimensions>>,
 ) {
     let src = crate::utils::to_base64(upload_input.files().unwrap().get(0).unwrap()).await;
     let img = HtmlImageElement::new().unwrap();
@@ -52,7 +52,7 @@ pub fn clicked_start(
     ctx: Rc<CanvasRenderingContext2d>,
     worker: Rc<Worker>,
     raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
-    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+    image_dimensions: Rc<OnceCell<ImageDimensions>>,
 ) {
     if raf_handle.borrow().is_some() {
         return;
@@ -77,7 +77,7 @@ pub fn clicked_start(
 pub fn clicked_stop(
     ctx: Rc<CanvasRenderingContext2d>,
     raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
-    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+    image_dimensions: Rc<OnceCell<ImageDimensions>>,
 ) {
     renderer::stop(ctx, image_dimensions);
     let taken = raf_handle.borrow_mut().take().unwrap();
@@ -94,7 +94,7 @@ pub async fn clicked_step(
     ctx: Rc<CanvasRenderingContext2d>,
     worker: Rc<Worker>,
     raf_handle: Rc<RefCell<Option<RequestAnimationFrameHandle>>>,
-    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+    image_dimensions: Rc<OnceCell<ImageDimensions>>,
 ) {
     if raf_handle.borrow().is_some() {
         return;
@@ -147,7 +147,7 @@ pub fn inputted_speed(e: PointerEvent) {
     renderer::change_speed(new_speed_percentage)
 }
 
-pub fn inputted_step(e: PointerEvent, image_dimensions: Rc<Cell<Option<ImageDimensions>>>) {
+pub fn inputted_step(e: PointerEvent, image_dimensions: Rc<OnceCell<ImageDimensions>>) {
     let change_step_message = e
         .target()
         .unwrap()

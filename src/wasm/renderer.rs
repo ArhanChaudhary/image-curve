@@ -1,13 +1,13 @@
 use crate::{gilbert, worker};
 use js_sys::{Uint8ClampedArray, WebAssembly};
-use std::{cell::Cell, ptr, rc::Rc};
+use std::{cell::OnceCell, ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
 pub static mut CURVE: Option<Vec<usize>> = None;
 pub static mut PIXEL_DATA: Option<Vec<u8>> = None;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct ImageDimensions {
     width: usize,
     height: usize,
@@ -15,7 +15,7 @@ pub struct ImageDimensions {
 
 pub fn load_image(
     ctx: Rc<CanvasRenderingContext2d>,
-    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+    image_dimensions: Rc<OnceCell<ImageDimensions>>,
 ) {
     let width = ctx.canvas().unwrap().width() as usize;
     let height = ctx.canvas().unwrap().height() as usize;
@@ -34,7 +34,9 @@ pub fn load_image(
         CURVE = Some(curve);
         PIXEL_DATA = Some(pixel_data);
     }
-    image_dimensions.set(Some(ImageDimensions { width, height }));
+    image_dimensions
+        .set(ImageDimensions { width, height })
+        .unwrap();
 }
 
 #[wasm_bindgen]
@@ -48,7 +50,7 @@ extern "C" {
 
 pub fn render_pixel_data(
     ctx: Rc<CanvasRenderingContext2d>,
-    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
+    image_dimensions: Rc<OnceCell<ImageDimensions>>,
 ) {
     let pixel_data = unsafe { PIXEL_DATA.as_ref().unwrap() };
     let base = pixel_data.as_ptr() as u32;
@@ -72,10 +74,7 @@ pub fn render_pixel_data(
     ctx.put_image_data(image_data, 0.0, 0.0).unwrap();
 }
 
-pub fn stop(
-    ctx: Rc<CanvasRenderingContext2d>,
-    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
-) {
+pub fn stop(ctx: Rc<CanvasRenderingContext2d>, image_dimensions: Rc<OnceCell<ImageDimensions>>) {
     unsafe {
         worker::STOP_WORKER_LOOP = true;
         while ptr::read_volatile(ptr::addr_of!(worker::STOP_WORKER_LOOP)) {}
@@ -93,10 +92,7 @@ pub fn change_speed(new_speed_percentage: usize) {
     }
 }
 
-pub fn change_step(
-    new_step_percentage: usize,
-    image_dimensions: Rc<Cell<Option<ImageDimensions>>>,
-) {
+pub fn change_step(new_step_percentage: usize, image_dimensions: Rc<OnceCell<ImageDimensions>>) {
     let scaled_step_percentage = (new_step_percentage as isize - 50) * 2;
     let ImageDimensions { width, height } = image_dimensions.get().unwrap();
     let curve_len = width * height;
