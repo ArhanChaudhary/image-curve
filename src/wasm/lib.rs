@@ -8,11 +8,11 @@ use std::{
 };
 use wasm_bindgen::prelude::*;
 use web_sys::{
-    CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, PointerEvent, Worker,
-    WorkerOptions, WorkerType,
+    CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, Worker, WorkerOptions,
+    WorkerType,
 };
 
-mod gilbert;
+mod paths;
 mod handlers;
 mod renderer;
 mod utils;

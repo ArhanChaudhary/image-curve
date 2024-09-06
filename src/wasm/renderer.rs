@@ -1,4 +1,4 @@
-use crate::{gilbert, worker, GlobalState};
+use crate::{paths, worker, GlobalState};
 use js_sys::{Uint8ClampedArray, WebAssembly};
 use std::{ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
@@ -12,6 +12,8 @@ pub struct ImageDimensions {
     height: usize,
 }
 
+pub struct Point(pub i32, pub i32);
+
 pub fn load_image(global_state: Rc<GlobalState>) {
     let width = global_state.ctx.canvas().unwrap().width() as usize;
     let height = global_state.ctx.canvas().unwrap().height() as usize;
@@ -22,9 +24,9 @@ pub fn load_image(global_state: Rc<GlobalState>) {
         .data()
         .0;
     let path = (0..(width * height))
-        .map(|idx| {
-            let p = gilbert::gilbert_d2xy(idx as i32, width as i32, height as i32);
-            ((p.y as usize) * width + (p.x as usize)) * 4
+        .map(|idx| paths::gilbert_d2xy(idx, width, height))
+        .map(|Point(x, y)| {
+            (y.rem_euclid(height as i32) as usize * width + x.rem_euclid(width as i32) as usize) * 4
         })
         .collect();
     unsafe {
