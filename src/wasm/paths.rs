@@ -3,13 +3,13 @@
 
 use crate::renderer::Point;
 
-pub fn shift(idx: usize, w: usize, h: usize) -> Point {
+pub fn shift(idx: u32, w: u32, h: u32) -> Point {
     let x = idx % w;
     let y = idx / w + x;
     Point(x as i32, y as i32)
 }
 
-pub fn gilbert_d2xy(idx: usize, w: usize, h: usize) -> Point {
+pub fn gilbert_d2xy(idx: u32, w: u32, h: u32) -> Point {
     if w >= h {
         gilbert_d2xy_r(
             idx as i32,

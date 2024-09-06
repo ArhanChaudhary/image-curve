@@ -8,15 +8,15 @@ pub static mut PIXEL_DATA: Option<Vec<u8>> = None;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ImageDimensions {
-    width: usize,
-    height: usize,
+    width: u32,
+    height: u32,
 }
 
 pub struct Point(pub i32, pub i32);
 
 pub fn load_image(global_state: Rc<GlobalState>) {
-    let width = global_state.ctx.canvas().unwrap().width() as usize;
-    let height = global_state.ctx.canvas().unwrap().height() as usize;
+    let width = global_state.ctx.canvas().unwrap().width();
+    let height = global_state.ctx.canvas().unwrap().height();
     let pixel_data = global_state
         .ctx
         .get_image_data(0.0, 0.0, width as f64, height as f64)
@@ -26,11 +26,13 @@ pub fn load_image(global_state: Rc<GlobalState>) {
     let mut path: Vec<_> = (0..(width * height))
         .map(|idx| paths::shift(idx, width, height))
         .map(|Point(x, y)| {
-            (y.rem_euclid(height as i32) as usize * width + x.rem_euclid(width as i32) as usize) * 4
+            (y.rem_euclid(height as i32) as usize * width as usize
+                + x.rem_euclid(width as i32) as usize)
+                * 4
         })
         .collect();
     path.dedup();
-    global_state.path_len.set(Some(path.len()));
+    global_state.path_len.set(Some(path.len() as u32));
     unsafe {
         PATH = Some(path);
         PIXEL_DATA = Some(pixel_data);
@@ -63,8 +65,8 @@ pub fn render_pixel_data(global_state: Rc<GlobalState>) {
 
     let image_data = &ImageData::new(
         &sliced_pixel_data,
-        global_state.image_dimensions.get().unwrap().width as u32,
-        global_state.image_dimensions.get().unwrap().height as u32,
+        global_state.image_dimensions.get().unwrap().width,
+        global_state.image_dimensions.get().unwrap().height,
     )
     .unwrap()
     .dyn_into::<web_sys::ImageData>()
@@ -84,25 +86,22 @@ pub fn stop(global_state: Rc<GlobalState>) {
     render_pixel_data(global_state);
 }
 
-const ALL_SLEEPS_PER_LOOP: [usize; 10] =
-    [200_000, 175_000, 50_000, 10_000, 2500, 500, 40, 20, 10, 0];
+const ALL_SLEEPS_PER_LOOP: [u32; 10] = [200_000, 175_000, 50_000, 10_000, 2500, 500, 40, 20, 10, 0];
 
-pub fn change_speed(new_speed_percentage: usize) {
+pub fn change_speed(new_speed_percentage: u32) {
     let lerped: u64 = crate::utils::lerp(ALL_SLEEPS_PER_LOOP, new_speed_percentage);
     unsafe {
         worker::SLEEP = lerped;
     }
 }
 
-pub fn change_step(new_step_percentage: usize, global_state: Rc<GlobalState>) {
-    let scaled_step_percentage = (new_step_percentage as isize - 50) * 2;
-    let ImageDimensions { width, height } = global_state.image_dimensions.get().unwrap();
+pub fn change_step(new_step_percentage: u32, global_state: Rc<GlobalState>) {
+    let scaled_step_percentage = (new_step_percentage as i32 - 50) * 2;
     let path_len = global_state.path_len.get().unwrap();
-    let path_len_proportion = 2_usize.pow(
-        path_len.ilog2()
-            - scaled_step_percentage.unsigned_abs() as u32 * (path_len.ilog2() - 1) / 100,
+    let path_len_proportion = 2_u32.pow(
+        path_len.ilog2() - scaled_step_percentage.unsigned_abs() * (path_len.ilog2() - 1) / 100,
     );
-    let steps = (path_len / path_len_proportion) as isize * scaled_step_percentage.signum();
+    let steps = (path_len / path_len_proportion) as i32 * scaled_step_percentage.signum();
     unsafe {
         worker::STEPS = steps;
     }

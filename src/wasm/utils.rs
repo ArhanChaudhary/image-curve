@@ -6,7 +6,7 @@ use web_sys::{Document, File, FileReader};
 
 pub fn lerp<T: Integer + NumCast + Copy, const N: usize, R: Num + NumCast>(
     values: [T; N],
-    percentage: usize,
+    percentage: u32,
 ) -> R {
     let percentage_jump = 100.0 / (N as f64 - 1.0);
     let floored_index = (percentage as f64 / percentage_jump) as usize;

@@ -31,7 +31,7 @@ struct GlobalState {
     worker: Worker,
     image_dimensions: OnceCell<ImageDimensions>,
     raf_handle: RefCell<Option<RequestAnimationFrameHandle>>,
-    path_len: Cell<Option<usize>>,
+    path_len: Cell<Option<u32>>,
 }
 
 struct LocalState {

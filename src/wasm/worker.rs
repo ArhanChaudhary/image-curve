@@ -2,7 +2,7 @@ use crate::{handlers, renderer};
 use std::{ptr, thread};
 
 pub static mut STOP_WORKER_LOOP: bool = false;
-pub static mut STEPS: isize = 1;
+pub static mut STEPS: i32 = 1;
 pub static mut SLEEP: u64 = 0;
 
 use serde::{Deserialize, Serialize};
@@ -67,7 +67,7 @@ fn step() {
     let path_len = path.len();
     let path_ptr = path.as_mut_ptr();
     let pixel_data_ptr = unsafe { renderer::PIXEL_DATA.as_mut().unwrap().as_mut_ptr() };
-    let steps = unsafe { STEPS };
+    let steps = unsafe { STEPS } as isize;
     if steps > 0 {
         let steps = steps as usize;
         for path_index in 0..(path_len - steps) {

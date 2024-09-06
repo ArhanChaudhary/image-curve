@@ -210,7 +210,7 @@ pub fn inputted_speed(e: PointerEvent) {
         .target()
         .unwrap()
         .unchecked_into::<HtmlInputElement>()
-        .value_as_number() as usize;
+        .value_as_number() as u32;
     renderer::change_speed(new_speed_percentage);
 }
 
@@ -219,6 +219,6 @@ pub fn inputted_step(e: PointerEvent, global_state: Rc<GlobalState>) {
         .target()
         .unwrap()
         .unchecked_into::<HtmlInputElement>()
-        .value_as_number() as usize;
+        .value_as_number() as u32;
     renderer::change_step(new_step_percentage, global_state);
 }
