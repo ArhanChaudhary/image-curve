@@ -3,7 +3,7 @@ use js_sys::Array;
 use renderer::ImageDimensions;
 use serde::Serialize;
 use std::{
-    cell::{OnceCell, RefCell},
+    cell::{Cell, OnceCell, RefCell},
     rc::Rc,
 };
 use wasm_bindgen::prelude::*;
@@ -31,6 +31,7 @@ struct GlobalState {
     worker: Worker,
     image_dimensions: OnceCell<ImageDimensions>,
     raf_handle: RefCell<Option<RequestAnimationFrameHandle>>,
+    path_len: Cell<Option<usize>>,
 }
 
 struct LocalState {
@@ -60,6 +61,7 @@ pub fn run_main() {
     let start_input = utils::get_element_by_id::<HtmlInputElement>(&document, "start");
     let image_dimensions = OnceCell::new();
     let raf_handle = RefCell::new(None);
+    let path_len = Cell::new(None);
 
     let worker_options = WorkerOptions::new();
     worker_options.set_type(WorkerType::Module);
@@ -76,6 +78,7 @@ pub fn run_main() {
         worker,
         image_dimensions,
         raf_handle,
+        path_len,
     });
 
     let step_input = utils::get_element_by_id::<HtmlInputElement>(&document, "step");

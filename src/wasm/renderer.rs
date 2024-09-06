@@ -23,12 +23,14 @@ pub fn load_image(global_state: Rc<GlobalState>) {
         .unwrap()
         .data()
         .0;
-    let path = (0..(width * height))
-        .map(|idx| paths::gilbert_d2xy(idx, width, height))
+    let mut path: Vec<_> = (0..(width * height))
+        .map(|idx| paths::shift(idx, width, height))
         .map(|Point(x, y)| {
             (y.rem_euclid(height as i32) as usize * width + x.rem_euclid(width as i32) as usize) * 4
         })
         .collect();
+    path.dedup();
+    global_state.path_len.set(Some(path.len()));
     unsafe {
         PATH = Some(path);
         PIXEL_DATA = Some(pixel_data);
@@ -50,14 +52,14 @@ extern "C" {
 
 pub fn render_pixel_data(global_state: Rc<GlobalState>) {
     let pixel_data = unsafe { PIXEL_DATA.as_ref().unwrap() };
-    let base = pixel_data.as_ptr() as u32;
-    let len = pixel_data.len() as u32;
+    let pixel_data_base = pixel_data.as_ptr() as u32;
+    let pixel_data_len = pixel_data.len() as u32;
     let sliced_pixel_data = Uint8ClampedArray::new(
         &wasm_bindgen::memory()
             .unchecked_into::<WebAssembly::Memory>()
             .buffer(),
     )
-    .slice(base, base + len);
+    .slice(pixel_data_base, pixel_data_base + pixel_data_len);
 
     let image_data = &ImageData::new(
         &sliced_pixel_data,
@@ -95,7 +97,7 @@ pub fn change_speed(new_speed_percentage: usize) {
 pub fn change_step(new_step_percentage: usize, global_state: Rc<GlobalState>) {
     let scaled_step_percentage = (new_step_percentage as isize - 50) * 2;
     let ImageDimensions { width, height } = global_state.image_dimensions.get().unwrap();
-    let path_len = width * height;
+    let path_len = global_state.path_len.get().unwrap();
     let path_len_proportion = 2_usize.pow(
         path_len.ilog2()
             - scaled_step_percentage.unsigned_abs() as u32 * (path_len.ilog2() - 1) / 100,
