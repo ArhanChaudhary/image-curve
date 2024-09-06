@@ -12,8 +12,8 @@ use web_sys::{
     WorkerType,
 };
 
-mod paths;
 mod handlers;
+mod paths;
 mod renderer;
 mod utils;
 mod worker;
@@ -94,7 +94,7 @@ pub fn run_main() {
         change_step_input,
     };
 
-    handlers::initialize_handlers(global_state, local_state);
+    handlers::initialize_event_listeners(global_state, local_state);
 }
 
 #[derive(Serialize)]

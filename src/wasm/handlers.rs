@@ -6,7 +6,7 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::{prelude::Closure, JsValue};
 use web_sys::{HtmlImageElement, HtmlInputElement, MessageEvent, PointerEvent};
 
-pub fn initialize_handlers(global_state: Rc<GlobalState>, local_state: LocalState) {
+pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: LocalState) {
     {
         let global_state_clone = global_state.clone();
         let onchange_closure = Closure::<dyn Fn()>::new(move || {
@@ -17,7 +17,8 @@ pub fn initialize_handlers(global_state: Rc<GlobalState>, local_state: LocalStat
         });
         global_state
             .upload_input
-            .set_onchange(Some(onchange_closure.as_ref().unchecked_ref()));
+            .add_event_listener_with_callback("change", onchange_closure.as_ref().unchecked_ref())
+            .unwrap();
         onchange_closure.forget();
     }
 
@@ -28,7 +29,8 @@ pub fn initialize_handlers(global_state: Rc<GlobalState>, local_state: LocalStat
         });
         global_state
             .start_input
-            .set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
+            .add_event_listener_with_callback("click", onclick_closure.as_ref().unchecked_ref())
+            .unwrap();
         onclick_closure.forget();
     }
 
@@ -39,7 +41,8 @@ pub fn initialize_handlers(global_state: Rc<GlobalState>, local_state: LocalStat
         });
         local_state
             .stop_input
-            .set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
+            .add_event_listener_with_callback("click", onclick_closure.as_ref().unchecked_ref())
+            .unwrap();
         onclick_closure.forget();
     }
 
@@ -53,7 +56,8 @@ pub fn initialize_handlers(global_state: Rc<GlobalState>, local_state: LocalStat
         });
         local_state
             .step_input
-            .set_onclick(Some(onclick_closure.as_ref().unchecked_ref()));
+            .add_event_listener_with_callback("click", onclick_closure.as_ref().unchecked_ref())
+            .unwrap();
         onclick_closure.forget();
     }
 
@@ -63,7 +67,8 @@ pub fn initialize_handlers(global_state: Rc<GlobalState>, local_state: LocalStat
         });
         local_state
             .change_speed_input
-            .set_oninput(Some(oninput_closure.as_ref().unchecked_ref()));
+            .add_event_listener_with_callback("input", oninput_closure.as_ref().unchecked_ref())
+            .unwrap();
         oninput_closure.forget();
     }
 
@@ -74,7 +79,8 @@ pub fn initialize_handlers(global_state: Rc<GlobalState>, local_state: LocalStat
         });
         local_state
             .change_step_input
-            .set_oninput(Some(oninput_closure.as_ref().unchecked_ref()));
+            .add_event_listener_with_callback("input", oninput_closure.as_ref().unchecked_ref())
+            .unwrap();
         oninput_closure.forget();
     }
 }
