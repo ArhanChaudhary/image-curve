@@ -90,13 +90,10 @@ pub async fn uploaded_image(global_state: Rc<GlobalState>) {
         crate::utils::to_base64(global_state.upload_input.files().unwrap().get(0).unwrap()).await;
     let img = HtmlImageElement::new().unwrap();
     img.set_src(&src);
-    wasm_bindgen_futures::JsFuture::from(Promise::new(
-        &mut |resolve: Function, _reject: Function| {
-            img.set_onload(Some(&resolve));
-        },
-    ))
-    .await
-    .unwrap();
+    let promise = Promise::new(&mut |resolve: Function, _reject: Function| {
+        img.set_onload(Some(&resolve));
+    });
+    wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
     let width = img.width();
     let height = img.height();
     let canvas = global_state.ctx.canvas().unwrap();
@@ -117,8 +114,17 @@ pub async fn uploaded_image(global_state: Rc<GlobalState>) {
 }
 
 pub struct RequestAnimationFrameHandle {
-    pub id: i32,
-    pub closure: Closure<dyn FnMut()>,
+    id: i32,
+    closure: Closure<dyn FnMut()>,
+}
+
+impl Drop for RequestAnimationFrameHandle {
+    fn drop(&mut self) {
+        web_sys::window()
+            .unwrap()
+            .cancel_animation_frame(self.id)
+            .unwrap();
+    }
 }
 
 pub fn clicked_start(global_state: Rc<GlobalState>) {

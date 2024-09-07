@@ -53,11 +53,11 @@ fn start() {
         if sleep != 0 {
             thread::sleep(std::time::Duration::from_micros(sleep));
         }
-        unsafe {
-            if ptr::read_volatile(ptr::addr_of!(STOP_WORKER_LOOP)) {
+        if unsafe { ptr::read_volatile(ptr::addr_of!(STOP_WORKER_LOOP)) } {
+            unsafe {
                 STOP_WORKER_LOOP = false;
-                break;
             }
+            break;
         }
     }
 }

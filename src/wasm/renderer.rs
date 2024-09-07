@@ -1,6 +1,6 @@
-use crate::{paths, worker, GlobalState};
+use crate::{handlers::MainMessage, paths, utils, worker, GlobalState};
 use js_sys::{Uint8ClampedArray, WebAssembly};
-use std::{ptr, rc::Rc};
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 pub static mut PATH: Option<Vec<usize>> = None;
