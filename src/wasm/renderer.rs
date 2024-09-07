@@ -78,11 +78,11 @@ pub fn render_pixel_data(global_state: Rc<GlobalState>) {
         .unwrap();
 }
 
-pub fn stop(global_state: Rc<GlobalState>) {
+pub async fn stop(global_state: Rc<GlobalState>) {
     unsafe {
         worker::STOP_WORKER_LOOP = true;
-        while ptr::read_volatile(ptr::addr_of!(worker::STOP_WORKER_LOOP)) {}
     }
+    utils::wait_for_worker_message(&global_state.worker, MainMessage::Stopped).await;
     render_pixel_data(global_state);
 }
 

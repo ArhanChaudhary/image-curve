@@ -32,6 +32,12 @@ impl WorkerMessage {
         match self {
             Self::Start => {
                 start();
+                js_sys::global()
+                    .unchecked_into::<DedicatedWorkerGlobalScope>()
+                    .post_message(
+                        &serde_wasm_bindgen::to_value(&handlers::MainMessage::Stopped).unwrap(),
+                    )
+                    .unwrap();
             }
             Self::Step => {
                 step();

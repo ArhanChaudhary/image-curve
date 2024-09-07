@@ -2,9 +2,8 @@ use crate::{renderer, utils, worker, GlobalState, LocalState};
 use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use wasm_bindgen::JsCast;
-use wasm_bindgen::{prelude::Closure, JsValue};
-use web_sys::{HtmlImageElement, HtmlInputElement, MessageEvent, PointerEvent};
+use wasm_bindgen::prelude::*;
+use web_sys::{HtmlImageElement, HtmlInputElement, PointerEvent};
 
 pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: LocalState) {
     {
@@ -37,7 +36,10 @@ pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: Lo
     {
         let global_state_clone = global_state.clone();
         let onclick_closure = Closure::<dyn Fn()>::new(move || {
-            clicked_stop(global_state_clone.clone());
+            let global_state_clone = global_state_clone.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                clicked_stop(global_state_clone.clone()).await;
+            });
         });
         local_state
             .stop_input
@@ -160,16 +162,16 @@ pub fn clicked_start(global_state: Rc<GlobalState>) {
     });
 }
 
-pub fn clicked_stop(global_state: Rc<GlobalState>) {
-    renderer::stop(global_state.clone());
-    let taken = global_state.raf_handle.borrow_mut().take().unwrap();
-    utils::cancel_animation_frame(taken.id);
+pub async fn clicked_stop(global_state: Rc<GlobalState>) {
+    renderer::stop(global_state.clone()).await;
+    global_state.raf_handle.borrow_mut().take().unwrap();
 }
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Copy, Clone)]
 #[serde(tag = "action", content = "payload")]
 pub enum MainMessage {
     Stepped,
+    Stopped,
 }
 
 pub async fn clicked_step(global_state: Rc<GlobalState>) {
@@ -180,40 +182,7 @@ pub async fn clicked_step(global_state: Rc<GlobalState>) {
         .worker
         .post_message(&serde_wasm_bindgen::to_value(&worker::WorkerMessage::Step).unwrap())
         .unwrap();
-
-    wasm_bindgen_futures::JsFuture::from(Promise::new(
-        &mut |resolve: Function, reject: Function| {
-            let closure = Closure::once_into_js(move |e: MessageEvent| {
-                let message = e.data();
-                let Ok(received_worker_message) =
-                    serde_wasm_bindgen::from_value::<MainMessage>(message)
-                else {
-                    reject.call0(&JsValue::NULL).unwrap();
-                    return;
-                };
-
-                if received_worker_message == MainMessage::Stepped {
-                    resolve.call0(&JsValue::NULL).unwrap();
-                } else {
-                    reject.call0(&JsValue::NULL).unwrap();
-                }
-            });
-
-            let event_listener_options = web_sys::AddEventListenerOptions::new();
-            event_listener_options.set_once(true);
-            global_state
-                .worker
-                .add_event_listener_with_callback_and_add_event_listener_options(
-                    "message",
-                    closure.unchecked_ref(),
-                    &event_listener_options,
-                )
-                .unwrap();
-        },
-    ))
-    .await
-    .unwrap();
-
+    utils::wait_for_worker_message(&global_state.worker, MainMessage::Stepped).await;
     renderer::render_pixel_data(global_state);
 }
 
