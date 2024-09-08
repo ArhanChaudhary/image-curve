@@ -111,7 +111,7 @@ pub async fn uploaded_image(global_state: Rc<GlobalState>) {
             height as f64,
         )
         .unwrap();
-    renderer::load_image(global_state);
+    renderer::load_image(global_state).await;
     // change speed / step here TODO:
 }
 
@@ -167,22 +167,26 @@ pub async fn clicked_stop(global_state: Rc<GlobalState>) {
     global_state.raf_handle.borrow_mut().take().unwrap();
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Copy, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Copy, Clone, Debug)]
 #[serde(tag = "action", content = "payload")]
 pub enum MainMessage {
     Stepped,
     Stopped,
+    LoadedPath { path_len: u32 },
 }
 
 pub async fn clicked_step(global_state: Rc<GlobalState>) {
     if global_state.raf_handle.borrow().is_some() {
         return;
     }
-    global_state
-        .worker
-        .post_message(&serde_wasm_bindgen::to_value(&worker::WorkerMessage::Step).unwrap())
-        .unwrap();
-    utils::wait_for_worker_message(&global_state.worker, MainMessage::Stepped).await;
+    let received_worker_message =
+        utils::worker_operation(&global_state.worker, worker::WorkerMessage::Step).await;
+    if received_worker_message != MainMessage::Stepped {
+        panic!(
+            "Expected MainMessage::Stepped, got {:?}",
+            received_worker_message
+        );
+    }
     renderer::render_pixel_data(global_state);
 }
 

@@ -1,4 +1,4 @@
-use crate::handlers::MainMessage;
+use crate::{handlers::MainMessage, worker::WorkerMessage};
 use js_sys::{Function, JsString, Promise};
 use num::{Integer, Num, NumCast};
 use std::rc::Rc;
@@ -58,16 +58,17 @@ pub async fn to_base64(file: File) -> String {
         .into()
 }
 
-pub async fn wait_for_worker_message(worker: &Worker, expected_worker_message: MainMessage) {
-    let promise = Promise::new(&mut |resolve: Function, reject: Function| {
+pub async fn worker_operation(worker: &Worker, operation_message: WorkerMessage) -> MainMessage {
+    worker
+        .post_message(&serde_wasm_bindgen::to_value(&operation_message).unwrap())
+        .unwrap();
+    wait_for_worker_message(worker).await
+}
+
+pub async fn wait_for_worker_message(worker: &Worker) -> MainMessage {
+    let promise = Promise::new(&mut |resolve: Function, _reject: Function| {
         let closure = Closure::once_into_js(move |e: MessageEvent| {
-            let message = e.data();
-            let received_worker_message = serde_wasm_bindgen::from_value::<MainMessage>(message).unwrap_throw();
-            if received_worker_message == expected_worker_message {
-                resolve.call0(&JsValue::NULL).unwrap();
-            } else {
-                reject.call0(&JsValue::NULL).unwrap();
-            }
+            resolve.call1(&JsValue::NULL, &e.data()).unwrap();
         });
 
         let event_listener_options = web_sys::AddEventListenerOptions::new();
@@ -80,5 +81,6 @@ pub async fn wait_for_worker_message(worker: &Worker, expected_worker_message: M
             )
             .unwrap();
     });
-    wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
+    let received_worker_message = wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
+    serde_wasm_bindgen::from_value(received_worker_message).unwrap()
 }

@@ -1,10 +1,9 @@
-use crate::{handlers::MainMessage, paths, utils, worker, GlobalState};
+use crate::{handlers, paths, utils, worker, GlobalState};
 use js_sys::{Uint8ClampedArray, WebAssembly};
-use std::rc::Rc;
+use std::{ptr, rc::Rc};
 use wasm_bindgen::prelude::*;
 
-pub static mut PATH: Option<Vec<usize>> = None;
-pub static mut PIXEL_DATA: Option<Vec<u8>> = None;
+pub static mut PIXEL_DATA: Vec<u8> = Vec::new();
 
 #[derive(Copy, Clone, Debug)]
 pub struct ImageDimensions {
@@ -14,7 +13,7 @@ pub struct ImageDimensions {
 
 pub struct Point(pub i32, pub i32);
 
-pub fn load_image(global_state: Rc<GlobalState>) {
+pub async fn load_image(global_state: Rc<GlobalState>) {
     let width = global_state.ctx.canvas().unwrap().width();
     let height = global_state.ctx.canvas().unwrap().height();
     let pixel_data = global_state
@@ -23,24 +22,26 @@ pub fn load_image(global_state: Rc<GlobalState>) {
         .unwrap()
         .data()
         .0;
-    let mut path: Vec<_> = (0..(width * height))
-        .map(|idx| paths::shift(idx, width, height))
-        .map(|Point(x, y)| {
-            (y.rem_euclid(height as i32) as usize * width as usize
-                + x.rem_euclid(width as i32) as usize)
-                * 4
-        })
-        .collect();
-    path.dedup();
-    global_state.path_len.set(Some(path.len() as u32));
-    unsafe {
-        PATH = Some(path);
-        PIXEL_DATA = Some(pixel_data);
-    }
+
     global_state
         .image_dimensions
         .set(ImageDimensions { width, height })
         .unwrap();
+    unsafe {
+        PIXEL_DATA = pixel_data;
+    }
+    let received_worker_message = utils::worker_operation(
+        &global_state.worker,
+        worker::WorkerMessage::LoadPath(worker::LoadPathMessage::new(width, height, paths::shift)),
+    )
+    .await;
+    let handlers::MainMessage::LoadedPath { path_len } = received_worker_message else {
+        panic!(
+            "Expected MainMessage::LoadedPath, got {:?}",
+            received_worker_message
+        );
+    };
+    global_state.path_len.set(Some(path_len));
 }
 
 #[wasm_bindgen]
@@ -53,7 +54,7 @@ extern "C" {
 }
 
 pub fn render_pixel_data(global_state: Rc<GlobalState>) {
-    let pixel_data = unsafe { PIXEL_DATA.as_ref().unwrap() };
+    let pixel_data = unsafe { &*ptr::addr_of!(PIXEL_DATA) };
     let pixel_data_base = pixel_data.as_ptr() as u32;
     let pixel_data_len = pixel_data.len() as u32;
     let sliced_pixel_data = Uint8ClampedArray::new(
@@ -82,7 +83,13 @@ pub async fn stop(global_state: Rc<GlobalState>) {
     unsafe {
         worker::STOP_WORKER_LOOP = true;
     }
-    utils::wait_for_worker_message(&global_state.worker, MainMessage::Stopped).await;
+    let received_worker_message = utils::wait_for_worker_message(&global_state.worker).await;
+    if received_worker_message != handlers::MainMessage::Stopped {
+        panic!(
+            "Expected MainMessage::Stopped, got {:?}",
+            received_worker_message
+        );
+    };
     render_pixel_data(global_state);
 }
 
