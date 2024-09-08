@@ -1,6 +1,6 @@
 use crate::{handlers, paths, utils, worker, GlobalState};
 use js_sys::{Uint8ClampedArray, WebAssembly};
-use std::{ptr, rc::Rc};
+use std::ptr;
 use wasm_bindgen::prelude::*;
 
 pub static mut PIXEL_DATA: Vec<u8> = Vec::new();
@@ -13,7 +13,7 @@ pub struct ImageDimensions {
 
 pub struct Point(pub i32, pub i32);
 
-pub async fn load_image(global_state: Rc<GlobalState>) {
+pub async fn load_image(global_state: &GlobalState) {
     let width = global_state.ctx.canvas().unwrap().width();
     let height = global_state.ctx.canvas().unwrap().height();
     let pixel_data = global_state
@@ -53,7 +53,7 @@ extern "C" {
     fn new(data: &Uint8ClampedArray, width: u32, height: u32) -> Result<ImageData, JsValue>;
 }
 
-pub fn render_pixel_data(global_state: Rc<GlobalState>) {
+pub fn render_pixel_data(global_state: &GlobalState) {
     let pixel_data = unsafe { &*ptr::addr_of!(PIXEL_DATA) };
     let pixel_data_base = pixel_data.as_ptr() as usize;
     let pixel_data_len = pixel_data.len() as u32;
@@ -82,7 +82,7 @@ pub fn render_pixel_data(global_state: Rc<GlobalState>) {
         .unwrap();
 }
 
-pub async fn stop(global_state: Rc<GlobalState>) {
+pub async fn stop(global_state: &GlobalState) {
     unsafe {
         worker::STOP_WORKER_LOOP = true;
     }
@@ -99,19 +99,18 @@ pub async fn stop(global_state: Rc<GlobalState>) {
 const ALL_SLEEPS_PER_LOOP: [u32; 10] = [200_000, 175_000, 50_000, 10_000, 2500, 500, 40, 20, 10, 0];
 
 pub fn change_speed(new_speed_percentage: u32) {
-    let lerped: u64 = crate::utils::lerp(ALL_SLEEPS_PER_LOOP, new_speed_percentage);
+    let lerped: u64 = crate::utils::lerp(&ALL_SLEEPS_PER_LOOP, new_speed_percentage);
     unsafe {
         worker::SLEEP = lerped;
     }
 }
 
-pub fn change_step(new_step_percentage: u32, global_state: Rc<GlobalState>) {
+pub fn change_step(new_step_percentage: u32, global_state: &GlobalState) {
     let scaled_step_percentage = (new_step_percentage as i32 - 50) * 2;
     let path_len = global_state.path_len.get().unwrap();
-    let path_len_proportion = 2_u32.pow(
-        path_len.ilog2() - scaled_step_percentage.unsigned_abs() * (path_len.ilog2() - 1) / 100,
-    );
-    let steps = (path_len / path_len_proportion) as i32 * scaled_step_percentage.signum();
+    let log_proportion =
+        path_len.ilog2() - scaled_step_percentage.unsigned_abs() * (path_len.ilog2() - 1) / 100;
+    let steps = (path_len / 2_u32.pow(log_proportion)) as i32 * scaled_step_percentage.signum();
     unsafe {
         worker::STEPS = steps;
     }

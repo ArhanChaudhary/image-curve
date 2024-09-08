@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: BSD-2-Clause
-// Copyright (c) 2024 abetusk
-
 use crate::renderer::Point;
 
 pub fn shift(idx: u32, w: u32, h: u32) -> Point {
@@ -8,6 +5,9 @@ pub fn shift(idx: u32, w: u32, h: u32) -> Point {
     let y = idx / w + x;
     Point(x as i32, y as i32)
 }
+
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2024 abetusk
 
 pub fn gilbert_d2xy(idx: u32, w: u32, h: u32) -> Point {
     if w >= h {

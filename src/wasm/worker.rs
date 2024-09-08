@@ -1,6 +1,6 @@
 use crate::{handlers, renderer};
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, ptr, rc::Rc, thread};
+use std::{cell::RefCell, ptr, thread};
 use wasm_bindgen::prelude::*;
 use web_sys::{DedicatedWorkerGlobalScope, MessageEvent};
 
@@ -15,12 +15,12 @@ struct GlobalState {
 
 #[wasm_bindgen(js_name = runWorker)]
 pub fn run_worker() {
-    let global_state: Rc<GlobalState> = Default::default();
+    let global_state: GlobalState = Default::default();
     let closure = Closure::<dyn Fn(_)>::new(move |e: MessageEvent| {
         let message = e.data();
         let received_worker_message: WorkerMessage =
             serde_wasm_bindgen::from_value(message).unwrap();
-        received_worker_message.process(&global_state.clone());
+        received_worker_message.process(&global_state);
     });
     js_sys::global()
         .unchecked_into::<DedicatedWorkerGlobalScope>()

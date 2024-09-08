@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::{Document, File, FileReader, MessageEvent, Worker};
 
 pub fn lerp<T: Integer + NumCast + Copy, const N: usize, R: Num + NumCast>(
-    values: [T; N],
+    values: &[T; N],
     percentage: u32,
 ) -> R {
     let percentage_jump = 100.0 / (N as f64 - 1.0);

@@ -11,7 +11,7 @@ pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: Lo
         let onchange_closure = Closure::<dyn Fn()>::new(move || {
             let global_state_clone = global_state_clone.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                uploaded_image(global_state_clone.clone()).await;
+                uploaded_image(&global_state_clone).await;
             });
         });
         global_state
@@ -38,7 +38,7 @@ pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: Lo
         let onclick_closure = Closure::<dyn Fn()>::new(move || {
             let global_state_clone = global_state_clone.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                clicked_stop(global_state_clone.clone()).await;
+                clicked_stop(&global_state_clone).await;
             });
         });
         local_state
@@ -53,7 +53,7 @@ pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: Lo
         let onclick_closure = Closure::<dyn Fn()>::new(move || {
             let global_state_clone = global_state_clone.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                clicked_step(global_state_clone.clone()).await;
+                clicked_step(&global_state_clone).await;
             });
         });
         local_state
@@ -77,7 +77,7 @@ pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: Lo
     {
         let global_state_clone = global_state.clone();
         let oninput_closure = Closure::<dyn Fn(_)>::new(move |e: PointerEvent| {
-            inputted_step(e, global_state_clone.clone());
+            inputted_step(e, &global_state_clone);
         });
         local_state
             .change_step_input
@@ -87,7 +87,7 @@ pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: Lo
     }
 }
 
-pub async fn uploaded_image(global_state: Rc<GlobalState>) {
+pub async fn uploaded_image(global_state: &GlobalState) {
     let src =
         crate::utils::to_base64(global_state.upload_input.files().unwrap().get(0).unwrap()).await;
     let img = HtmlImageElement::new().unwrap();
@@ -140,7 +140,7 @@ pub fn clicked_start(global_state: Rc<GlobalState>) {
 
     let global_state_clone = global_state.clone();
     let render_pixel_data_loop = Closure::<dyn FnMut()>::new(move || {
-        renderer::render_pixel_data(global_state_clone.clone());
+        renderer::render_pixel_data(&global_state_clone);
         let id = utils::request_animation_frame(
             &global_state_clone
                 .raf_handle
@@ -162,8 +162,8 @@ pub fn clicked_start(global_state: Rc<GlobalState>) {
     });
 }
 
-pub async fn clicked_stop(global_state: Rc<GlobalState>) {
-    renderer::stop(global_state.clone()).await;
+pub async fn clicked_stop(global_state: &GlobalState) {
+    renderer::stop(global_state).await;
     global_state.raf_handle.borrow_mut().take().unwrap();
 }
 
@@ -175,7 +175,7 @@ pub enum MainMessage {
     LoadedPath { path_len: u32 },
 }
 
-pub async fn clicked_step(global_state: Rc<GlobalState>) {
+pub async fn clicked_step(global_state: &GlobalState) {
     if global_state.raf_handle.borrow().is_some() {
         return;
     }
@@ -199,7 +199,7 @@ pub fn inputted_speed(e: PointerEvent) {
     renderer::change_speed(new_speed_percentage);
 }
 
-pub fn inputted_step(e: PointerEvent, global_state: Rc<GlobalState>) {
+pub fn inputted_step(e: PointerEvent, global_state: &GlobalState) {
     let new_step_percentage = e
         .target()
         .unwrap()
