@@ -55,14 +55,17 @@ extern "C" {
 
 pub fn render_pixel_data(global_state: Rc<GlobalState>) {
     let pixel_data = unsafe { &*ptr::addr_of!(PIXEL_DATA) };
-    let pixel_data_base = pixel_data.as_ptr() as u32;
+    let pixel_data_base = pixel_data.as_ptr() as usize;
     let pixel_data_len = pixel_data.len() as u32;
     let sliced_pixel_data = Uint8ClampedArray::new(
         &wasm_bindgen::memory()
             .unchecked_into::<WebAssembly::Memory>()
             .buffer(),
     )
-    .slice(pixel_data_base, pixel_data_base + pixel_data_len);
+    .slice(
+        pixel_data_base as u32,
+        pixel_data_base as u32 + pixel_data_len,
+    );
 
     let image_data = &ImageData::new(
         &sliced_pixel_data,

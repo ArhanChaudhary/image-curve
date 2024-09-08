@@ -1,20 +1,31 @@
 use crate::{handlers, renderer};
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, ptr, thread};
+use std::{cell::RefCell, ptr, rc::Rc, thread};
 use wasm_bindgen::prelude::*;
-use web_sys::DedicatedWorkerGlobalScope;
+use web_sys::{DedicatedWorkerGlobalScope, MessageEvent};
 
-thread_local! {
-    static PATH: RefCell<Vec<usize>> = const { RefCell::new(Vec::new()) };
-}
 pub static mut STOP_WORKER_LOOP: bool = false;
 pub static mut STEPS: i32 = 1;
 pub static mut SLEEP: u64 = 0;
 
-#[wasm_bindgen(js_name = handleWorkerMessage)]
-pub fn handle_worker_message(message: JsValue) {
-    let received_worker_message: WorkerMessage = serde_wasm_bindgen::from_value(message).unwrap();
-    received_worker_message.process();
+#[derive(Default)]
+struct GlobalState {
+    path: RefCell<Vec<usize>>,
+}
+
+#[wasm_bindgen(js_name = runWorker)]
+pub fn run_worker() {
+    let global_state: Rc<GlobalState> = Default::default();
+    let closure = Closure::<dyn Fn(_)>::new(move |e: MessageEvent| {
+        let message = e.data();
+        let received_worker_message: WorkerMessage =
+            serde_wasm_bindgen::from_value(message).unwrap();
+        received_worker_message.process(&global_state.clone());
+    });
+    js_sys::global()
+        .unchecked_into::<DedicatedWorkerGlobalScope>()
+        .set_onmessage(Some(closure.as_ref().unchecked_ref()));
+    closure.forget();
 }
 
 #[derive(Serialize, Deserialize)]
@@ -45,10 +56,10 @@ impl LoadPathMessage {
 }
 
 impl WorkerMessage {
-    fn process(self) {
+    fn process(self, global_state: &GlobalState) {
         match self {
             Self::Start => {
-                start();
+                start(global_state);
                 js_sys::global()
                     .unchecked_into::<DedicatedWorkerGlobalScope>()
                     .post_message(
@@ -57,7 +68,7 @@ impl WorkerMessage {
                     .unwrap();
             }
             Self::Step => {
-                step();
+                step(global_state);
                 js_sys::global()
                     .unchecked_into::<DedicatedWorkerGlobalScope>()
                     .post_message(
@@ -66,7 +77,7 @@ impl WorkerMessage {
                     .unwrap();
             }
             Self::LoadPath(load_path_message) => {
-                let path_len = load_path(load_path_message);
+                let path_len = load_path(load_path_message, global_state);
                 js_sys::global()
                     .unchecked_into::<DedicatedWorkerGlobalScope>()
                     .post_message(
@@ -81,9 +92,9 @@ impl WorkerMessage {
     }
 }
 
-fn start() {
+fn start(global_state: &GlobalState) {
     loop {
-        step();
+        step(global_state);
         let sleep = unsafe { SLEEP };
         if sleep != 0 {
             thread::sleep(std::time::Duration::from_micros(sleep));
@@ -97,37 +108,35 @@ fn start() {
     }
 }
 
-fn step() {
-    PATH.with(|path| {
-        let mut path = path.borrow_mut();
-        let path_len = path.len();
-        let path_ptr = path.as_mut_ptr();
-        let pixel_data_ptr = unsafe { renderer::PIXEL_DATA.as_mut_ptr() };
-        let steps = unsafe { STEPS } as isize;
-        if steps > 0 {
-            let steps = steps as usize;
-            for path_index in 0..(path_len - steps) {
-                unsafe {
-                    swap_pixel(
-                        path_ptr.add(path_index),
-                        path_ptr.add((path_index + path_len - steps) % path_len),
-                        pixel_data_ptr,
-                    );
-                }
-            }
-        } else {
-            let steps = steps.unsigned_abs();
-            for path_index in (steps..path_len).rev() {
-                unsafe {
-                    swap_pixel(
-                        path_ptr.add(path_index),
-                        path_ptr.add((path_index + path_len - steps) % path_len),
-                        pixel_data_ptr,
-                    );
-                }
+fn step(global_state: &GlobalState) {
+    let mut path = global_state.path.borrow_mut();
+    let path_len = path.len();
+    let path_ptr = path.as_mut_ptr();
+    let pixel_data_ptr = unsafe { renderer::PIXEL_DATA.as_mut_ptr() };
+    let steps = unsafe { STEPS } as isize;
+    if steps > 0 {
+        let steps = steps as usize;
+        for path_index in 0..(path_len - steps) {
+            unsafe {
+                swap_pixel(
+                    path_ptr.add(path_index),
+                    path_ptr.add((path_index + path_len - steps) % path_len),
+                    pixel_data_ptr,
+                );
             }
         }
-    });
+    } else {
+        let steps = steps.unsigned_abs();
+        for path_index in (steps..path_len).rev() {
+            unsafe {
+                swap_pixel(
+                    path_ptr.add(path_index),
+                    path_ptr.add((path_index + path_len - steps) % path_len),
+                    pixel_data_ptr,
+                );
+            }
+        }
+    }
 }
 
 unsafe fn swap_pixel(
@@ -149,7 +158,7 @@ unsafe fn swap_pixel(
     );
 }
 
-fn load_path(load_path_message: LoadPathMessage) -> u32 {
+fn load_path(load_path_message: LoadPathMessage, global_state: &GlobalState) -> u32 {
     let path_fn: PathFn = unsafe { std::mem::transmute(load_path_message.path_fn_ptr) };
     let mut path: Vec<_> = (0..(load_path_message.width * load_path_message.height))
         .map(|idx| path_fn(idx, load_path_message.width, load_path_message.height))
@@ -162,8 +171,6 @@ fn load_path(load_path_message: LoadPathMessage) -> u32 {
         .collect();
     path.dedup();
     let path_len = path.len();
-    PATH.with(|path_cell| {
-        *path_cell.borrow_mut() = path;
-    });
+    *global_state.path.borrow_mut() = path;
     path_len as u32
 }

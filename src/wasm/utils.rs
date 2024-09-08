@@ -45,7 +45,7 @@ pub async fn to_base64(file: File) -> String {
                 .unwrap_throw()
                 .dyn_into::<JsString>()
                 .unwrap_throw();
-            resolve.call1(&JsValue::NULL, &result).unwrap();
+            resolve.call1(&JsValue::NULL, &result).unwrap_throw();
         });
         reader.set_onload(Some(onload.unchecked_ref()));
     });
