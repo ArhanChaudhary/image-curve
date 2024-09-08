@@ -1,9 +1,7 @@
 use crate::{handlers, paths, utils, worker, GlobalState};
 use js_sys::{Uint8ClampedArray, WebAssembly};
-use std::ptr;
+use std::sync::atomic::Ordering;
 use wasm_bindgen::prelude::*;
-
-pub static mut PIXEL_DATA: Vec<u8> = Vec::new();
 
 #[derive(Copy, Clone, Debug)]
 pub struct ImageDimensions {
@@ -22,14 +20,12 @@ pub async fn load_image(global_state: &GlobalState) {
         .unwrap()
         .data()
         .0;
+    *worker::PIXEL_DATA.lock().unwrap() = pixel_data;
 
     global_state
         .image_dimensions
         .set(ImageDimensions { width, height })
         .unwrap();
-    unsafe {
-        PIXEL_DATA = pixel_data;
-    }
     let received_worker_message = utils::worker_operation(
         &global_state.worker,
         worker::WorkerMessage::LoadPath(worker::LoadPathMessage::new(width, height, paths::shift)),
@@ -54,7 +50,7 @@ extern "C" {
 }
 
 pub fn render_pixel_data(global_state: &GlobalState) {
-    let pixel_data = unsafe { &*ptr::addr_of!(PIXEL_DATA) };
+    let pixel_data = worker::PIXEL_DATA.lock().unwrap();
     let pixel_data_base = pixel_data.as_ptr() as usize;
     let pixel_data_len = pixel_data.len() as u32;
     let sliced_pixel_data = Uint8ClampedArray::new(
@@ -83,9 +79,7 @@ pub fn render_pixel_data(global_state: &GlobalState) {
 }
 
 pub async fn stop(global_state: &GlobalState) {
-    unsafe {
-        worker::STOP_WORKER_LOOP = true;
-    }
+    worker::STOP_WORKER_LOOP.store(true, Ordering::Relaxed);
     let received_worker_message = utils::wait_for_worker_message(&global_state.worker).await;
     if received_worker_message != handlers::MainMessage::Stopped {
         panic!(
@@ -100,9 +94,7 @@ const ALL_SLEEPS_PER_LOOP: [u32; 10] = [200_000, 175_000, 50_000, 10_000, 2500, 
 
 pub fn change_speed(new_speed_percentage: u32) {
     let lerped: u64 = crate::utils::lerp(&ALL_SLEEPS_PER_LOOP, new_speed_percentage);
-    unsafe {
-        worker::SLEEP = lerped;
-    }
+    worker::SLEEP.store(lerped, Ordering::Relaxed);
 }
 
 pub fn change_step(new_step_percentage: u32, global_state: &GlobalState) {
@@ -111,7 +103,5 @@ pub fn change_step(new_step_percentage: u32, global_state: &GlobalState) {
     let log_proportion =
         path_len.ilog2() - scaled_step_percentage.unsigned_abs() * (path_len.ilog2() - 1) / 100;
     let steps = (path_len / 2_u32.pow(log_proportion)) as i32 * scaled_step_percentage.signum();
-    unsafe {
-        worker::STEPS = steps;
-    }
+    worker::STEPS.store(steps, Ordering::Relaxed);
 }

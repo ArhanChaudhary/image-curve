@@ -1,12 +1,20 @@
 use crate::{handlers, renderer};
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, ptr, thread};
+use std::{
+    cell::RefCell,
+    sync::{
+        atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
+        Mutex,
+    },
+    thread,
+};
 use wasm_bindgen::prelude::*;
 use web_sys::{DedicatedWorkerGlobalScope, MessageEvent};
 
-pub static mut STOP_WORKER_LOOP: bool = false;
-pub static mut STEPS: i32 = 1;
-pub static mut SLEEP: u64 = 0;
+pub static PIXEL_DATA: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+pub static STOP_WORKER_LOOP: AtomicBool = AtomicBool::new(false);
+pub static STEPS: AtomicI32 = AtomicI32::new(1);
+pub static SLEEP: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Default)]
 struct GlobalState {
@@ -95,14 +103,11 @@ impl WorkerMessage {
 fn start(global_state: &GlobalState) {
     loop {
         step(global_state);
-        let sleep = unsafe { SLEEP };
-        if sleep != 0 {
-            thread::sleep(std::time::Duration::from_micros(sleep));
-        }
-        if unsafe { ptr::read_volatile(ptr::addr_of!(STOP_WORKER_LOOP)) } {
-            unsafe {
-                STOP_WORKER_LOOP = false;
-            }
+        thread::sleep(std::time::Duration::from_micros(
+            SLEEP.load(Ordering::Relaxed),
+        ));
+        if STOP_WORKER_LOOP.load(Ordering::Relaxed) {
+            STOP_WORKER_LOOP.store(false, Ordering::Relaxed);
             break;
         }
     }
@@ -112,8 +117,8 @@ fn step(global_state: &GlobalState) {
     let mut path = global_state.path.borrow_mut();
     let path_len = path.len();
     let path_ptr = path.as_mut_ptr();
-    let pixel_data_ptr = unsafe { renderer::PIXEL_DATA.as_mut_ptr() };
-    let steps = unsafe { STEPS } as isize;
+    let pixel_data_ptr = PIXEL_DATA.lock().unwrap().as_mut_ptr();
+    let steps = STEPS.load(Ordering::Relaxed) as isize;
     if steps > 0 {
         let steps = steps as usize;
         for path_index in 0..(path_len - steps) {
