@@ -32,13 +32,13 @@ struct GlobalState {
     image_dimensions: OnceCell<ImageDimensions>,
     raf_handle: RefCell<Option<RequestAnimationFrameHandle>>,
     path_len: Cell<Option<u32>>,
+    change_speed_input: HtmlInputElement,
+    change_step_input: HtmlInputElement,
 }
 
 struct LocalState {
     step_input: HtmlInputElement,
     stop_input: HtmlInputElement,
-    change_speed_input: HtmlInputElement,
-    change_step_input: HtmlInputElement,
 }
 
 #[wasm_bindgen(js_name = runMain)]
@@ -59,6 +59,9 @@ pub fn run_main() {
         .unwrap();
     let upload_input = utils::get_element_by_id::<HtmlInputElement>(&document, "upload");
     let start_input = utils::get_element_by_id::<HtmlInputElement>(&document, "start");
+    let change_speed_input =
+        utils::get_element_by_id::<HtmlInputElement>(&document, "change-speed");
+    let change_step_input = utils::get_element_by_id::<HtmlInputElement>(&document, "change-step");
     let image_dimensions = OnceCell::new();
     let raf_handle = RefCell::new(None);
     let path_len = Cell::new(None);
@@ -79,19 +82,16 @@ pub fn run_main() {
         image_dimensions,
         raf_handle,
         path_len,
+        change_speed_input,
+        change_step_input,
     });
 
     let step_input = utils::get_element_by_id::<HtmlInputElement>(&document, "step");
     let stop_input = utils::get_element_by_id::<HtmlInputElement>(&document, "stop");
-    let change_speed_input =
-        utils::get_element_by_id::<HtmlInputElement>(&document, "change-speed");
-    let change_step_input = utils::get_element_by_id::<HtmlInputElement>(&document, "change-step");
 
     let local_state = LocalState {
         step_input,
         stop_input,
-        change_speed_input,
-        change_step_input,
     };
 
     handlers::initialize_event_listeners(global_state, local_state);

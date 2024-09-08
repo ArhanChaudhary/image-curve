@@ -37,9 +37,6 @@ features = [
     "FileList",
     "ImageData",
     "CanvasRenderingContext2d",
-    "PointerEvent",
-    "Event",
-    "EventTarget",
     "DedicatedWorkerGlobalScope",
     "AddEventListenerOptions",
 ]

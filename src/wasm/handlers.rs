@@ -1,9 +1,12 @@
-use crate::{renderer, utils, worker, GlobalState, LocalState};
+use crate::{
+    renderer,
+    utils, worker, GlobalState, LocalState,
+};
 use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
-use web_sys::{HtmlImageElement, HtmlInputElement, PointerEvent};
+use web_sys::HtmlImageElement;
 
 pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: LocalState) {
     {
@@ -64,10 +67,11 @@ pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: Lo
     }
 
     {
-        let oninput_closure = Closure::<dyn Fn(_)>::new(move |e: PointerEvent| {
-            inputted_speed(e);
+        let global_state_clone = global_state.clone();
+        let oninput_closure = Closure::<dyn Fn()>::new(move || {
+            inputted_speed(&global_state_clone);
         });
-        local_state
+        global_state
             .change_speed_input
             .add_event_listener_with_callback("input", oninput_closure.as_ref().unchecked_ref())
             .unwrap();
@@ -76,10 +80,10 @@ pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: Lo
 
     {
         let global_state_clone = global_state.clone();
-        let oninput_closure = Closure::<dyn Fn(_)>::new(move |e: PointerEvent| {
-            inputted_step(e, &global_state_clone);
+        let oninput_closure = Closure::<dyn Fn()>::new(move || {
+            inputted_step(&global_state_clone);
         });
-        local_state
+        global_state
             .change_step_input
             .add_event_listener_with_callback("input", oninput_closure.as_ref().unchecked_ref())
             .unwrap();
@@ -112,7 +116,8 @@ pub async fn uploaded_image(global_state: &GlobalState) {
         )
         .unwrap();
     renderer::load_image(global_state).await;
-    // change speed / step here TODO:
+    inputted_speed(global_state);
+    inputted_step(global_state);
 }
 
 pub struct RequestAnimationFrameHandle {
@@ -190,20 +195,12 @@ pub async fn clicked_step(global_state: &GlobalState) {
     renderer::render_pixel_data(global_state);
 }
 
-pub fn inputted_speed(e: PointerEvent) {
-    let new_speed_percentage = e
-        .target()
-        .unwrap()
-        .unchecked_into::<HtmlInputElement>()
-        .value_as_number() as u32;
+pub fn inputted_speed(global_state: &GlobalState) {
+    let new_speed_percentage = global_state.change_speed_input.value_as_number() as u32;
     renderer::change_speed(new_speed_percentage);
 }
 
-pub fn inputted_step(e: PointerEvent, global_state: &GlobalState) {
-    let new_step_percentage = e
-        .target()
-        .unwrap()
-        .unchecked_into::<HtmlInputElement>()
-        .value_as_number() as u32;
+pub fn inputted_step(global_state: &GlobalState) {
+    let new_step_percentage = global_state.change_step_input.value_as_number() as u32;
     renderer::change_step(new_step_percentage, global_state);
 }

@@ -28,7 +28,11 @@ pub async fn load_image(global_state: &GlobalState) {
         .unwrap();
     let received_worker_message = utils::worker_operation(
         &global_state.worker,
-        worker::WorkerMessage::LoadPath(worker::LoadPathMessage::new(width, height, paths::shift)),
+        worker::WorkerMessage::LoadPath(worker::LoadPathMessage::new(
+            width,
+            height,
+            paths::gilbert_d2xy,
+        )),
     )
     .await;
     let handlers::MainMessage::LoadedPath { path_len } = received_worker_message else {
@@ -98,10 +102,15 @@ pub fn change_speed(new_speed_percentage: u32) {
 }
 
 pub fn change_step(new_step_percentage: u32, global_state: &GlobalState) {
-    let scaled_step_percentage = (new_step_percentage as i32 - 50) * 2;
-    let path_len = global_state.path_len.get().unwrap();
+    let scaled_step_percentage = ((new_step_percentage as i32 - 50) * 2) as f64;
+    if scaled_step_percentage == 0.0 {
+        worker::STEPS.store(0, Ordering::Relaxed);
+        return;
+    }
+    let path_len = global_state.path_len.get().unwrap() as f64;
     let log_proportion =
-        path_len.ilog2() - scaled_step_percentage.unsigned_abs() * (path_len.ilog2() - 1) / 100;
-    let steps = (path_len / 2_u32.pow(log_proportion)) as i32 * scaled_step_percentage.signum();
+        path_len.log2() - scaled_step_percentage.abs() * (path_len.log2() - 1.0) / 100.0;
+    let steps =
+        (path_len / 2.0_f64.powf(log_proportion)) as i32 * scaled_step_percentage.signum() as i32;
     worker::STEPS.store(steps, Ordering::Relaxed);
 }
