@@ -1,3 +1,3 @@
-import wasmInit, { runMain } from "./pkg/image_gilbert.js";
+import wasmInit, { runMain } from "./pkg/image_curve.js";
 await wasmInit();
 runMain();

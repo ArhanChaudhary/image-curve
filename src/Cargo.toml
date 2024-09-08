@@ -1,5 +1,5 @@
 [package]
-name = "image-gilbert"
+name = "image-curve"
 version = "0.1.0"
 authors = ["Arhan Chaudhary <arhan.ch@gmail.com>"]
 edition = "2021"
