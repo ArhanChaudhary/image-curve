@@ -1,7 +1,4 @@
-use crate::{
-    renderer,
-    utils, worker, GlobalState, LocalState,
-};
+use crate::{renderer, utils, worker, GlobalState, LocalState};
 use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
@@ -92,8 +89,10 @@ pub fn initialize_event_listeners(global_state: Rc<GlobalState>, local_state: Lo
 }
 
 pub async fn uploaded_image(global_state: &GlobalState) {
-    let src =
-        crate::utils::to_base64(global_state.upload_input.files().unwrap().get(0).unwrap()).await;
+    let Some(file) = global_state.upload_input.files().unwrap().get(0) else {
+        return;
+    };
+    let src = crate::utils::to_base64(file).await;
     let img = HtmlImageElement::new().unwrap();
     img.set_src(&src);
     let promise = Promise::new(&mut |resolve: Function, _reject: Function| {
@@ -168,6 +167,9 @@ pub fn clicked_start(global_state: Rc<GlobalState>) {
 }
 
 pub async fn clicked_stop(global_state: &GlobalState) {
+    if global_state.raf_handle.borrow().is_none() {
+        return;
+    }
     renderer::stop(global_state).await;
     global_state.raf_handle.borrow_mut().take().unwrap();
 }
@@ -201,6 +203,9 @@ pub fn inputted_speed(global_state: &GlobalState) {
 }
 
 pub fn inputted_step(global_state: &GlobalState) {
+    if global_state.path_len.get().is_none() {
+        return;
+    }
     let new_step_percentage = global_state.change_step_input.value_as_number() as u32;
     renderer::change_step(new_step_percentage, global_state);
 }
