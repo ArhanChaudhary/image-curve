@@ -95,7 +95,7 @@ pub async fn stop(global_state: &GlobalState) {
 const ALL_SLEEPS_PER_LOOP: [u32; 10] = [200_000, 175_000, 50_000, 10_000, 2500, 500, 40, 20, 10, 0];
 
 pub fn change_speed(new_speed_percentage: u32) {
-    let lerped: u64 = crate::utils::lerp(&ALL_SLEEPS_PER_LOOP, new_speed_percentage);
+    let lerped: u64 = utils::lerp(&ALL_SLEEPS_PER_LOOP, new_speed_percentage);
     worker::SLEEP.store(lerped, Ordering::Relaxed);
 }
 

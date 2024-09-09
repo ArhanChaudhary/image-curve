@@ -92,13 +92,14 @@ pub async fn uploaded_image(global_state: &GlobalState) {
     let Some(file) = global_state.upload_input.files().unwrap().get(0) else {
         return;
     };
-    let src = crate::utils::to_base64(file).await;
+    let src = utils::to_base64(file).await;
     let img = HtmlImageElement::new().unwrap();
     img.set_src(&src);
     let promise = Promise::new(&mut |resolve: Function, _reject: Function| {
         img.set_onload(Some(&resolve));
     });
     wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
+    clicked_stop(global_state).await;
     let width = img.width();
     let height = img.height();
     let canvas = global_state.ctx.canvas().unwrap();
