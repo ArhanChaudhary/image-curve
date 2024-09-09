@@ -3,14 +3,11 @@ use js_sys::Array;
 use renderer::ImageDimensions;
 use serde::Serialize;
 use std::{
-    cell::{Cell, OnceCell, RefCell},
+    cell::{Cell, RefCell},
     rc::Rc,
 };
 use wasm_bindgen::prelude::*;
-use web_sys::{
-    CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, Worker, WorkerOptions,
-    WorkerType,
-};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlInputElement, Worker};
 
 mod handlers;
 mod paths;
@@ -29,7 +26,7 @@ struct GlobalState {
     upload_input: HtmlInputElement,
     start_input: HtmlInputElement,
     worker: Worker,
-    image_dimensions: OnceCell<ImageDimensions>,
+    image_dimensions: RefCell<ImageDimensions>,
     raf_handle: RefCell<Option<RequestAnimationFrameHandle>>,
     path_len: Cell<Option<u32>>,
     change_speed_input: HtmlInputElement,
@@ -42,7 +39,12 @@ struct LocalState {
 }
 
 #[wasm_bindgen(js_name = runMain)]
-pub fn run_main() {
+pub fn run_main(worker: Worker) {
+    let worker_message = Array::new();
+    worker_message.push(&wasm_bindgen::module());
+    worker_message.push(&wasm_bindgen::memory());
+    worker.post_message(&worker_message).unwrap();
+
     let document = web_sys::window().unwrap().document().unwrap();
 
     let ctx = utils::get_element_by_id::<HtmlCanvasElement>(&document, "canvas")
@@ -62,17 +64,9 @@ pub fn run_main() {
     let change_speed_input =
         utils::get_element_by_id::<HtmlInputElement>(&document, "change-speed");
     let change_step_input = utils::get_element_by_id::<HtmlInputElement>(&document, "change-step");
-    let image_dimensions = OnceCell::new();
+    let image_dimensions = Default::default();
     let raf_handle = RefCell::new(None);
     let path_len = Cell::new(None);
-
-    let worker_options = WorkerOptions::new();
-    worker_options.set_type(WorkerType::Module);
-    let worker = Worker::new_with_options("./worker.js", &worker_options).unwrap();
-    let worker_message = Array::new();
-    worker_message.push(&wasm_bindgen::module());
-    worker_message.push(&wasm_bindgen::memory());
-    worker.post_message(&worker_message).unwrap();
 
     let global_state = Rc::new(GlobalState {
         ctx,

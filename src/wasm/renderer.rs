@@ -3,7 +3,7 @@ use js_sys::{Uint8ClampedArray, WebAssembly};
 use std::sync::atomic::Ordering;
 use wasm_bindgen::prelude::*;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct ImageDimensions {
     width: u32,
     height: u32,
@@ -22,10 +22,7 @@ pub async fn load_image(global_state: &GlobalState) {
         .0;
     *worker::PIXEL_DATA.lock().unwrap() = pixel_data;
 
-    global_state
-        .image_dimensions
-        .set(ImageDimensions { width, height })
-        .unwrap();
+    *global_state.image_dimensions.borrow_mut() = ImageDimensions { width, height };
     let received_worker_message = utils::worker_operation(
         &global_state.worker,
         worker::WorkerMessage::LoadPath(worker::LoadPathMessage::new(
@@ -67,10 +64,11 @@ pub fn render_pixel_data(global_state: &GlobalState) {
         pixel_data_base as u32 + pixel_data_len,
     );
 
+    let image_dimensions = global_state.image_dimensions.borrow();
     let image_data = &ImageData::new(
         &sliced_pixel_data,
-        global_state.image_dimensions.get().unwrap().width,
-        global_state.image_dimensions.get().unwrap().height,
+        image_dimensions.width,
+        image_dimensions.height,
     )
     .unwrap()
     .dyn_into::<web_sys::ImageData>()
